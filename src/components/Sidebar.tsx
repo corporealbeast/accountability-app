@@ -10,6 +10,7 @@ import {
   Zap,
   BarChart2,
   Brain,
+  FlaskConical,
   ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
@@ -45,6 +46,12 @@ const groups: NavGroup[] = [
     title: "Business",
     items: [
       { label: "GrayRevenue", href: "/gray-revenue", icon: <BarChart2 size={16} /> },
+    ],
+  },
+  {
+    title: "Health",
+    items: [
+      { label: "The Stack", href: "/stack", icon: <FlaskConical size={16} /> },
     ],
   },
   {

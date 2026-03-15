@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Swords, Landmark, Dumbbell, Zap, BarChart2, Brain, ArrowRight } from "lucide-react";
+import { Swords, Landmark, Dumbbell, Zap, BarChart2, Brain, FlaskConical, ArrowRight } from "lucide-react";
 
 const cards = [
   {
@@ -48,6 +48,15 @@ const cards = [
     badge: "$7,240 MRR",
     badgeColor: "#8ACDD4",
     badgeBg: "rgba(138,205,212,0.12)",
+  },
+  {
+    href: "/stack",
+    icon: <FlaskConical size={22} />,
+    label: "The Stack",
+    desc: "Supplement tracker & Vald integration",
+    badge: "10 supplements",
+    badgeColor: "#20B2AA",
+    badgeBg: "rgba(32,178,170,0.12)",
   },
   {
     href: "/vald",
