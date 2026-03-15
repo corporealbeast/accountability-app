@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Swords, Landmark, Dumbbell, Zap, BarChart2, ArrowRight } from "lucide-react";
+import { Swords, Landmark, Dumbbell, Zap, BarChart2, Brain, ArrowRight } from "lucide-react";
 
 const cards = [
   {
@@ -48,6 +48,15 @@ const cards = [
     badge: "$7,240 MRR",
     badgeColor: "#8ACDD4",
     badgeBg: "rgba(138,205,212,0.12)",
+  },
+  {
+    href: "/vald",
+    icon: <Brain size={22} />,
+    label: "Vald Brain",
+    desc: "Visual knowledge graph — 14 nodes",
+    badge: "8 categories",
+    badgeColor: "#9370DB",
+    badgeBg: "rgba(147,112,219,0.15)",
   },
 ];
 

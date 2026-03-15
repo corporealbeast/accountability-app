@@ -9,6 +9,7 @@ import {
   Dumbbell,
   Zap,
   BarChart2,
+  Brain,
   ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
@@ -44,6 +45,12 @@ const groups: NavGroup[] = [
     title: "Business",
     items: [
       { label: "GrayRevenue", href: "/gray-revenue", icon: <BarChart2 size={16} /> },
+    ],
+  },
+  {
+    title: "Mind",
+    items: [
+      { label: "Vald Brain", href: "/vald", icon: <Brain size={16} /> },
     ],
   },
 ];
