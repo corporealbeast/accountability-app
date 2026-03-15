@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Swords, Landmark, Dumbbell, Zap, BarChart2, ArrowRight } from "lucide-react";
 
