@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --wolf-gray: #2C2F33;
+  --wolf-gray-light: #36393F;
+  --wolf-gray-dark: #23262A;
+  --powder-blue: #B0E0E6;
+  --powder-blue-dark: #8ACDD4;
+}
+
+body {
+  background-color: var(--wolf-gray);
+  color: var(--powder-blue);
+}
