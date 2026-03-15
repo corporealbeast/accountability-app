@@ -95,11 +95,8 @@ export default function Home() {
             letterSpacing: "-0.02em",
           }}
         >
-          Accountability Dashboard
+          Home
         </h1>
-        <p style={{ fontSize: "15px", color: "#9aa5b0", margin: 0 }}>
-          Wolf Gray · Powder Blue · Built to perform.
-        </p>
       </div>
 
       {/* Strongman callout */}

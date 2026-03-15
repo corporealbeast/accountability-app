@@ -118,7 +118,7 @@ export default function Sidebar() {
           </div>
           <div>
             <div style={{ fontSize: "14px", fontWeight: 600, color: "#B0E0E6", lineHeight: 1.2 }}>
-              Accountability
+              Christian
             </div>
             <div style={{ fontSize: "11px", color: "#7a8a95", lineHeight: 1.2 }}>
               corporealbeast
