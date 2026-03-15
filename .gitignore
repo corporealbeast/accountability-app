@@ -5,10 +5,23 @@ node_modules/
 .next/
 out/
 
-# env files
+# env files — never commit secrets
 .env*
 !.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# secrets / tokens
+*.pem
+*.key
+*.token
+secrets.json
+secrets.yaml
+secrets.yml
 
 # misc
 *.log
 .DS_Store
+Thumbs.db
