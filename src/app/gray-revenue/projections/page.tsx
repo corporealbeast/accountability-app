@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface Scenario {
   label: string;
@@ -75,7 +76,7 @@ export default function ProjectionsPage() {
   const [activeScenario, setActiveScenario] = useState(1); // base
   const [customGrowth, setCustomGrowth] = useState(10);
   const [useCustom, setUseCustom] = useState(false);
-  const [streams, setStreams] = useState<StreamInput[]>(defaultStreams);
+  const [streams, setStreams] = useLocalStorage<StreamInput[]>("gr_proj_streams", defaultStreams);
 
   const growthRate = useCustom ? customGrowth / 100 : scenarios[activeScenario].monthlyGrowth;
   const projection = projectMRR(currentMRR, growthRate, MONTHS);

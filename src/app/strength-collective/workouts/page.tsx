@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface Set {
   weight: string;
@@ -64,7 +65,7 @@ function blankExercise(id: number): Exercise {
 }
 
 export default function WorkoutsPage() {
-  const [workouts, setWorkouts] = useState<Workout[]>(seedWorkouts);
+  const [workouts, setWorkouts] = useLocalStorage<Workout[]>("sc_workouts", seedWorkouts);
   const [expanded, setExpanded] = useState<number | null>(1);
   const [showLogger, setShowLogger] = useState(false);
 

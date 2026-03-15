@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type StreamStatus = "active" | "growing" | "paused" | "idea";
 type StreamType = "saas" | "service" | "digital" | "affiliate" | "content" | "other";
@@ -106,7 +107,7 @@ const streamTypes: StreamType[] = ["saas", "service", "digital", "affiliate", "c
 const streamStatuses: StreamStatus[] = ["active", "growing", "paused", "idea"];
 
 export default function StreamsPage() {
-  const [streams, setStreams] = useState<RevenueStream[]>(seedStreams);
+  const [streams, setStreams] = useLocalStorage<RevenueStream[]>("gr_streams", seedStreams);
   const [expanded, setExpanded] = useState<number | null>(1);
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState<"all" | StreamStatus>("all");

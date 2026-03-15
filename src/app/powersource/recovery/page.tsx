@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type SleepQuality = "great" | "good" | "poor";
 type RecoveryMethod = "stretching" | "cold" | "sauna" | "massage" | "rest" | "walk";
@@ -58,8 +59,8 @@ type Tab = "sleep" | "recovery";
 
 export default function RecoveryPage() {
   const [activeTab, setActiveTab] = useState<Tab>("sleep");
-  const [sleepLog, setSleepLog] = useState<SleepEntry[]>(seedSleep);
-  const [recoveryLog, setRecoveryLog] = useState<RecoveryEntry[]>(seedRecovery);
+  const [sleepLog, setSleepLog] = useLocalStorage<SleepEntry[]>("ps_sleep", seedSleep);
+  const [recoveryLog, setRecoveryLog] = useLocalStorage<RecoveryEntry[]>("ps_recovery", seedRecovery);
 
   // Sleep form
   const [showSleepForm, setShowSleepForm] = useState(false);

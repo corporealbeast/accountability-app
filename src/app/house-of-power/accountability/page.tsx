@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type Mood = "strong" | "solid" | "off";
 
@@ -49,7 +50,7 @@ const initialLogs: CheckIn[] = [
 const today = new Date().toISOString().split("T")[0];
 
 export default function AccountabilityPage() {
-  const [logs, setLogs] = useState<CheckIn[]>(initialLogs);
+  const [logs, setLogs] = useLocalStorage<CheckIn[]>("hop_checkins", initialLogs);
   const [showForm, setShowForm] = useState(false);
   const [mood, setMood] = useState<Mood>("solid");
   const [wins, setWins] = useState("");

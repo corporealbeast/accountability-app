@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface FoodEntry {
   id: number;
@@ -40,7 +41,7 @@ const mealIcons: Record<Meal, string> = {
 };
 
 export default function NutritionPage() {
-  const [entries, setEntries] = useState<FoodEntry[]>(seedEntries);
+  const [entries, setEntries] = useLocalStorage<FoodEntry[]>("ps_nutrition", seedEntries);
   const [showForm, setShowForm] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<Meal>("Breakfast");
   const [name, setName] = useState("");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type Status = "active" | "completed" | "paused";
 
@@ -31,7 +32,7 @@ const statusColors: Record<Status, { bg: string; text: string; label: string }> 
 };
 
 export default function GoalsPage() {
-  const [goals, setGoals] = useState<Goal[]>(initialGoals);
+  const [goals, setGoals] = useLocalStorage<Goal[]>("hop_goals", initialGoals);
   const [filter, setFilter] = useState<"all" | Status>("all");
   const [showForm, setShowForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");

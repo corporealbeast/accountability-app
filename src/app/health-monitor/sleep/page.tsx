@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type SleepPhase = "deep" | "light" | "rem" | "awake";
 
@@ -39,7 +40,7 @@ const seedNights: SleepNight[] = [
 const goals = { totalHours: 8, deep: 20, rem: 20, hrv: 60 };
 
 export default function SleepDetailPage() {
-  const [nights, setNights] = useState<SleepNight[]>(seedNights);
+  const [nights, setNights] = useLocalStorage<SleepNight[]>("hm_sleep", seedNights);
   const [selected, setSelected] = useState<number>(1);
   const [showForm, setShowForm] = useState(false);
 

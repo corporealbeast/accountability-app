@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface MetricEntry {
   date: string;
@@ -115,7 +116,7 @@ const seedMetrics: Metric[] = [
 const metricIds = seedMetrics.map((m) => m.id);
 
 export default function MetricsPage() {
-  const [metrics, setMetrics] = useState<Metric[]>(seedMetrics);
+  const [metrics, setMetrics] = useLocalStorage<Metric[]>("hm_metrics", seedMetrics);
   const [activeMetric, setActiveMetric] = useState<string>("weight");
   const [showLog, setShowLog] = useState(false);
   const [logValue, setLogValue] = useState("");
