@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd.exe /c \"gh auth status 2>&1\")",
+      "Bash(cmd.exe /c \"start http://localhost:3000\")",
+      "Bash(cd:*)"
+    ]
+  }
+}
