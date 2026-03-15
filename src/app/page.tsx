@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Swords, Landmark, Dumbbell, Zap, BarChart2, Brain, FlaskConical, ArrowRight } from "lucide-react";
+import { Swords, Landmark, Dumbbell, Zap, BarChart2, Brain, FlaskConical, Crosshair, ArrowRight } from "lucide-react";
 
 const cards = [
   {
@@ -57,6 +57,15 @@ const cards = [
     badge: "10 supplements",
     badgeColor: "#20B2AA",
     badgeBg: "rgba(32,178,170,0.12)",
+  },
+  {
+    href: "/precision-programming",
+    icon: <Crosshair size={22} />,
+    label: "Precision Programming",
+    desc: "Athlete dashboard · Macrocycle planner",
+    badge: "4 athletes",
+    badgeColor: "#FFD700",
+    badgeBg: "rgba(255,215,0,0.12)",
   },
   {
     href: "/vald",

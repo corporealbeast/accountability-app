@@ -11,6 +11,7 @@ import {
   BarChart2,
   Brain,
   FlaskConical,
+  Crosshair,
   ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
@@ -52,6 +53,12 @@ const groups: NavGroup[] = [
     title: "Health",
     items: [
       { label: "The Stack", href: "/stack", icon: <FlaskConical size={16} /> },
+    ],
+  },
+  {
+    title: "Coaching",
+    items: [
+      { label: "Precision Programming", href: "/precision-programming", icon: <Crosshair size={16} /> },
     ],
   },
   {
