@@ -36,12 +36,12 @@ export async function POST(req: Request) {
     text,
   }).then(() => {})
 
-  // Process command asynchronously so we return 200 quickly
-  // The dispatchCommand will call sendTelegramMessage internally
-  dispatchCommand(text, chatId).catch(async (err) => {
+  try {
+    await dispatchCommand(text, chatId)
+  } catch (err) {
     const { sendTelegramMessage } = await import('@/lib/telegram-utils')
     await sendTelegramMessage(chatId, `Eden error: ${err instanceof Error ? err.message : String(err)}`)
-  })
+  }
 
   return NextResponse.json({ ok: true })
 }
