@@ -1,8 +1,8 @@
-const GM_BASE = 'https://api.gymmaster.com/api/v1'
+const GM_BASE = 'https://houseofpower.gymmasteronline.com/portal/api/v1'
 
 function gmHeaders() {
   return {
-    'X-API-Key': process.env.GYMMASTER_API_KEY!,
+    'Authorization': process.env.GYMMASTER_API_KEY!,
     'Content-Type': 'application/json',
   }
 }

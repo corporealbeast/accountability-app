@@ -3,6 +3,7 @@
 
 import { createServerSupabaseClient } from './supabase-server'
 import { getMembershipsExpiringSoon } from './gymmaster'
+import { listKpiFields, getKpiByFields, listReports, runReport } from './gymmaster-reporting'
 import { getTodayEvents, getUpcomingEvents, createEvent } from './google-calendar'
 import { appendNote, getTodayNotePath } from './obsidian'
 import { sendEmail } from './google-gmail'
@@ -197,6 +198,30 @@ export const ODIN_TOOLS = [
       type: 'object',
       properties: {
         limit: { type: 'number', description: 'Number of check-ins to return (default 7)' },
+      },
+    },
+  },
+  {
+    name: 'get_gymmaster_kpis',
+    description: 'Fetch KPI metrics from GymMaster for a date range. Use list first to discover available field IDs.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        fieldIds: { type: 'array', items: { type: 'string' }, description: 'KPI field IDs to fetch. Leave empty to list all available fields.' },
+        startDate: { type: 'string', description: 'Start date YYYY-MM-DD (default: first of current month)' },
+        endDate: { type: 'string', description: 'End date YYYY-MM-DD (default: today)' },
+      },
+    },
+  },
+  {
+    name: 'get_gymmaster_report',
+    description: 'Run a standard GymMaster report. Use without reportId to list available reports.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        reportId: { type: 'string', description: 'Report ID to run. Omit to list available reports.' },
+        startDate: { type: 'string', description: 'Start date YYYY-MM-DD' },
+        endDate: { type: 'string', description: 'End date YYYY-MM-DD' },
       },
     },
   },
@@ -406,6 +431,40 @@ export async function executeTool(name: string, input: Record<string, unknown>):
         return data.map((c) =>
           `${c.date} [${c.mood}] Wins: ${c.wins}${c.struggles ? ` | Struggles: ${c.struggles}` : ''}`
         ).join('\n')
+      }
+
+      case 'get_gymmaster_kpis': {
+        const { fieldIds, startDate, endDate } = input as { fieldIds?: string[]; startDate?: string; endDate?: string }
+        const today = new Date().toISOString().split('T')[0]
+        const firstOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0]
+
+        if (!fieldIds?.length) {
+          const fields = await listKpiFields()
+          if (!fields.length) return 'No KPI fields found.'
+          return 'Available KPI fields:\n' + fields.map((f) => `${f.id}: ${f.name} (${f.category})`).join('\n')
+        }
+
+        const results = await getKpiByFields(fieldIds, startDate ?? firstOfMonth, endDate ?? today)
+        if (!results.length) return 'No KPI data returned for those fields.'
+        return results.map((r) => `${r.field}: ${r.value}${r.date ? ` (${r.date})` : ''}`).join('\n')
+      }
+
+      case 'get_gymmaster_report': {
+        const { reportId, startDate, endDate } = input as { reportId?: string; startDate?: string; endDate?: string }
+        const today = new Date().toISOString().split('T')[0]
+        const firstOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0]
+
+        if (!reportId) {
+          const reports = await listReports()
+          if (!reports.length) return 'No reports found.'
+          return 'Available reports:\n' + reports.map((r) => `${r.id}: ${r.name} (${r.category})`).join('\n')
+        }
+
+        const rows = await runReport(reportId, startDate ?? firstOfMonth, endDate ?? today)
+        if (!rows.length) return 'Report returned no data.'
+        const headers = Object.keys(rows[0]).join('\t')
+        const data = rows.slice(0, 20).map((r) => Object.values(r).join('\t')).join('\n')
+        return `${headers}\n${data}`
       }
 
       case 'list_google_sheets': {
