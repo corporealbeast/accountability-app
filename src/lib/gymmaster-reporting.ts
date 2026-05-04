@@ -1,22 +1,20 @@
 const GM_REPORT_BASE = 'https://houseofpower.gymmasteronline.com/api/v2/report'
 
-function gmHeaders() {
-  return {
-    'Authorization': process.env.GYMMASTER_API_KEY!,
-    'Content-Type': 'application/json',
-  }
+function withKey(path: string) {
+  const sep = path.includes('?') ? '&' : '?'
+  return `${GM_REPORT_BASE}${path}${sep}api_key=${process.env.GYMMASTER_API_KEY}`
 }
 
 async function gmGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${GM_REPORT_BASE}${path}`, { headers: gmHeaders() })
+  const res = await fetch(withKey(path))
   if (!res.ok) throw new Error(`GymMaster reporting ${path}: ${res.status} ${res.statusText}`)
   return res.json()
 }
 
 async function gmPost<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${GM_REPORT_BASE}${path}`, {
+  const res = await fetch(withKey(path), {
     method: 'POST',
-    headers: gmHeaders(),
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`GymMaster reporting ${path}: ${res.status} ${res.statusText}`)

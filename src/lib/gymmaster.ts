@@ -1,10 +1,8 @@
 const GM_BASE = 'https://houseofpower.gymmasteronline.com/portal/api/v1'
 
-function gmHeaders() {
-  return {
-    'Authorization': process.env.GYMMASTER_API_KEY!,
-    'Content-Type': 'application/json',
-  }
+function withKey(path: string) {
+  const sep = path.includes('?') ? '&' : '?'
+  return `${GM_BASE}${path}${sep}api_key=${process.env.GYMMASTER_API_KEY}`
 }
 
 export interface GMMember {
@@ -20,7 +18,7 @@ export interface GMMember {
 }
 
 async function gmFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${GM_BASE}${path}`, { headers: gmHeaders() })
+  const res = await fetch(withKey(path))
   if (!res.ok) throw new Error(`GymMaster ${path}: ${res.status} ${res.statusText}`)
   return res.json()
 }
