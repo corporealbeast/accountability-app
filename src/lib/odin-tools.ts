@@ -8,6 +8,7 @@ import { appendNote, getTodayNotePath } from './obsidian'
 import { sendEmail } from './google-gmail'
 import { getTaskLists, createTask } from './google-tasks'
 import { triggerZap } from './zapier'
+import { listSpreadsheets, getSheetValues, appendSheetValues, updateSheetValues } from './google-sheets'
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 const GHL_HEADERS = () => ({
@@ -200,6 +201,46 @@ export const ODIN_TOOLS = [
     },
   },
   {
+    name: 'list_google_sheets',
+    description: 'List spreadsheets in Google Drive. Optionally search by name.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Optional name search (e.g. "revenue", "tracker")' },
+      },
+    },
+  },
+  {
+    name: 'read_sheet',
+    description: 'Read cell values from a Google Sheet. Use list_google_sheets first to find the spreadsheet ID.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        spreadsheetId: { type: 'string', description: 'The spreadsheet ID from Google Drive' },
+        range: { type: 'string', description: 'A1 notation range, e.g. "Sheet1!A1:D20" or just "A1:D20" for first sheet' },
+      },
+      required: ['spreadsheetId', 'range'],
+    },
+  },
+  {
+    name: 'write_sheet',
+    description: 'Write or append rows to a Google Sheet. Use append=true to add rows, false to overwrite a range.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        spreadsheetId: { type: 'string', description: 'The spreadsheet ID' },
+        range: { type: 'string', description: 'A1 notation range, e.g. "Sheet1!A1"' },
+        values: {
+          type: 'array',
+          items: { type: 'array', items: { type: 'string' } },
+          description: '2D array of values, e.g. [["Name", "Amount"], ["Chris", "500"]]',
+        },
+        append: { type: 'boolean', description: 'If true, append rows after existing data. If false, overwrite the range.' },
+      },
+      required: ['spreadsheetId', 'range', 'values'],
+    },
+  },
+  {
     name: 'trigger_zapier',
     description: 'Trigger a Zapier webhook to automate a workflow.',
     input_schema: {
@@ -365,6 +406,32 @@ export async function executeTool(name: string, input: Record<string, unknown>):
         return data.map((c) =>
           `${c.date} [${c.mood}] Wins: ${c.wins}${c.struggles ? ` | Struggles: ${c.struggles}` : ''}`
         ).join('\n')
+      }
+
+      case 'list_google_sheets': {
+        const sheets = await listSpreadsheets(input.query as string | undefined)
+        if (!sheets.length) return 'No spreadsheets found.'
+        return sheets.map((s) => `${s.name} | ID: ${s.id}`).join('\n')
+      }
+
+      case 'read_sheet': {
+        const { spreadsheetId, range } = input as { spreadsheetId: string; range: string }
+        const rows = await getSheetValues(spreadsheetId, range)
+        if (!rows.length) return 'No data found in that range.'
+        return rows.map((row) => row.join('\t')).join('\n')
+      }
+
+      case 'write_sheet': {
+        const { spreadsheetId, range, values, append } = input as {
+          spreadsheetId: string; range: string; values: string[][]; append?: boolean
+        }
+        if (append) {
+          const rowsAdded = await appendSheetValues(spreadsheetId, range, values)
+          return `Appended ${rowsAdded} row(s) to ${range}.`
+        } else {
+          const cellsUpdated = await updateSheetValues(spreadsheetId, range, values)
+          return `Updated ${cellsUpdated} cell(s) in ${range}.`
+        }
       }
 
       case 'trigger_zapier': {
