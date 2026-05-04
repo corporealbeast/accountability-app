@@ -60,8 +60,13 @@ export async function POST(req: Request) {
 
   const { messages, context } = await req.json()
 
+  // Anthropic requires the first message to be from the user
+  const trimmed = (messages as AnthropicMessage[]).filter((_, i) =>
+    !(i === 0 && (messages as AnthropicMessage[])[0].role === 'assistant')
+  )
+
   // Agentic loop: run until Claude stops using tools
-  const conversationMessages: AnthropicMessage[] = [...messages]
+  const conversationMessages: AnthropicMessage[] = [...trimmed]
   let iterations = 0
   const MAX_ITERATIONS = 10 // safety limit
 
