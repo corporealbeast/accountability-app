@@ -45,8 +45,26 @@ export const blockDefaults: Record<BlockType, { duration: number; desc: string }
   Transition:  { duration: 1, desc: "Off-season, general fitness" },
 };
 
+export interface ExerciseRow {
+  id: string;
+  week: number;   // 1-based
+  day: string;    // "Day 1", "A", "Mon", etc.
+  exercise: string;
+  sets: string;
+  reps: string;
+  percentRM: string; // "85%", "RPE 8", "—"
+  notes: string;
+}
+
+export interface PhaseDetail {
+  blockId: string;
+  notes: string;
+  exercises: ExerciseRow[];
+}
+
 const ATHLETES_KEY = "pp_athletes";
 const BLOCKS_KEY   = "pp_blocks";
+const PHASES_KEY   = "pp_phases";
 
 const seedAthletes: Athlete[] = [
   {
@@ -132,14 +150,17 @@ function uid(prefix: string) {
 export function useAthletes() {
   const [athletes, setAthletes] = useState<Athlete[]>(seedAthletes);
   const [blocks, setBlocks]     = useState<MacroBlock[]>(seedBlocks);
+  const [phases, setPhases]     = useState<Record<string, PhaseDetail>>({});
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const a = localStorage.getItem(ATHLETES_KEY);
       const b = localStorage.getItem(BLOCKS_KEY);
+      const p = localStorage.getItem(PHASES_KEY);
       if (a) setAthletes(JSON.parse(a));
       if (b) setBlocks(JSON.parse(b));
+      if (p) setPhases(JSON.parse(p));
     } catch {}
     setHydrated(true);
   }, []);
@@ -149,8 +170,9 @@ export function useAthletes() {
     try {
       localStorage.setItem(ATHLETES_KEY, JSON.stringify(athletes));
       localStorage.setItem(BLOCKS_KEY,   JSON.stringify(blocks));
+      localStorage.setItem(PHASES_KEY,   JSON.stringify(phases));
     } catch {}
-  }, [athletes, blocks, hydrated]);
+  }, [athletes, blocks, phases, hydrated]);
 
   // Athletes CRUD
   const addAthlete = (data: Omit<Athlete, "id">) => {
@@ -173,8 +195,51 @@ export function useAthletes() {
   };
   const updateBlock = (id: string, changes: Partial<Omit<MacroBlock, "id">>) =>
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...changes } : b)));
-  const deleteBlock = (id: string) =>
+  const deleteBlock = (id: string) => {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
+    setPhases((prev) => { const next = { ...prev }; delete next[id]; return next; });
+  };
 
-  return { athletes, blocks, addAthlete, updateAthlete, deleteAthlete, addBlock, updateBlock, deleteBlock };
+  // Phase CRUD
+  const getPhase = (blockId: string): PhaseDetail =>
+    phases[blockId] ?? { blockId, notes: "", exercises: [] };
+
+  const updatePhaseNotes = (blockId: string, notes: string) =>
+    setPhases((prev) => ({ ...prev, [blockId]: { ...getPhase(blockId), notes } }));
+
+  const addExercise = (blockId: string, week: number) => {
+    const row: ExerciseRow = {
+      id: uid("ex"), week, day: "Day 1", exercise: "", sets: "4", reps: "5", percentRM: "75%", notes: "",
+    };
+    setPhases((prev) => ({
+      ...prev,
+      [blockId]: { ...getPhase(blockId), exercises: [...(getPhase(blockId).exercises), row] },
+    }));
+    return row.id;
+  };
+
+  const updateExercise = (blockId: string, rowId: string, changes: Partial<Omit<ExerciseRow, "id">>) =>
+    setPhases((prev) => ({
+      ...prev,
+      [blockId]: {
+        ...getPhase(blockId),
+        exercises: getPhase(blockId).exercises.map((e) => e.id === rowId ? { ...e, ...changes } : e),
+      },
+    }));
+
+  const deleteExercise = (blockId: string, rowId: string) =>
+    setPhases((prev) => ({
+      ...prev,
+      [blockId]: {
+        ...getPhase(blockId),
+        exercises: getPhase(blockId).exercises.filter((e) => e.id !== rowId),
+      },
+    }));
+
+  return {
+    athletes, blocks, phases,
+    addAthlete, updateAthlete, deleteAthlete,
+    addBlock, updateBlock, deleteBlock,
+    getPhase, updatePhaseNotes, addExercise, updateExercise, deleteExercise,
+  };
 }

@@ -12,9 +12,18 @@ export interface StackItem {
   purchaseUrl: string;
   status: StackStatus;
   valdLinked: boolean;
+  sectionId?: string;
 }
 
-const STORAGE_KEY = "stack_items";
+export interface StackSection {
+  id: string;
+  name: string;
+  color: string;
+  collapsed: boolean;
+}
+
+const STORAGE_KEY   = "stack_items";
+const SECTIONS_KEY  = "stack_sections";
 
 const seed: StackItem[] = [
   { id: "s1",  name: "Creatine Monohydrate", brand: "Thorne",            timing: "5g · Post-Workout",         purchaseUrl: "https://www.amazon.com/s?k=thorne+creatine",              status: "In Stock",      valdLinked: false },
@@ -29,31 +38,38 @@ const seed: StackItem[] = [
   { id: "s10", name: "Pre-Workout (Stim)",   brand: "Gorilla Mode",      timing: "1 scoop · 20 min pre",      purchaseUrl: "https://www.amazon.com/s?k=gorilla+mode+pre+workout",   status: "In Stock",      valdLinked: false },
 ];
 
-function uid() {
-  return `stack-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+function uid(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 export function useStack() {
-  const [items, setItems] = useState<StackItem[]>(seed);
+  const [items,    setItems]    = useState<StackItem[]>(seed);
+  const [sections, setSections] = useState<StackSection[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setItems(JSON.parse(stored));
+      const si = localStorage.getItem(STORAGE_KEY);
+      if (si) setItems(JSON.parse(si));
+      const ss = localStorage.getItem(SECTIONS_KEY);
+      if (ss) setSections(JSON.parse(ss));
     } catch {}
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
   }, [items, hydrated]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(sections)); } catch {}
+  }, [sections, hydrated]);
+
+  // ── items ──────────────────────────────────────────────
   const addItem = (data: Omit<StackItem, "id" | "valdLinked">) => {
-    const item: StackItem = { ...data, id: uid(), valdLinked: false };
+    const item: StackItem = { ...data, id: uid("stack"), valdLinked: false };
     setItems((prev) => [item, ...prev]);
     return item.id;
   };
@@ -76,5 +92,25 @@ export function useStack() {
     );
   };
 
-  return { items, addItem, updateItem, deleteItem, toggleStatus };
+  // ── sections ───────────────────────────────────────────
+  const addSection = (name: string, color: string): string => {
+    const sec: StackSection = { id: uid("sec"), name, color, collapsed: false };
+    setSections((prev) => [...prev, sec]);
+    return sec.id;
+  };
+
+  const updateSection = (id: string, changes: Partial<Omit<StackSection, "id">>) => {
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
+  };
+
+  const deleteSection = (id: string) => {
+    setSections((prev) => prev.filter((s) => s.id !== id));
+    setItems((prev) => prev.map((i) => i.sectionId === id ? { ...i, sectionId: undefined } : i));
+  };
+
+  const moveItemToSection = (itemId: string, sectionId: string | undefined) => {
+    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, sectionId } : i)));
+  };
+
+  return { items, addItem, updateItem, deleteItem, toggleStatus, sections, addSection, updateSection, deleteSection, moveItemToSection };
 }

@@ -13,13 +13,22 @@ import {
   FlaskConical,
   Crosshair,
   ChevronDown,
+  Bot,
+  Sword,
+  Bell,
+  Globe,
+  Code2,
+  Sparkles,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
+  sub?: boolean;
 }
 
 interface NavGroup {
@@ -39,6 +48,9 @@ const groups: NavGroup[] = [
     title: "Gyms",
     items: [
       { label: "House of Power", href: "/house-of-power", icon: <Landmark size={16} /> },
+      { label: "Eden", href: "/house-of-power/odin", icon: <Sparkles size={14} />, sub: true },
+      { label: "Davis Legacy", href: "/house-of-power/odin-claude", icon: <Sword size={14} />, sub: true },
+      { label: "GymMaster", href: "/gymmaster", icon: <Users size={16} /> },
       { label: "Strength Collective", href: "/strength-collective", icon: <Dumbbell size={16} /> },
       { label: "PowerSource", href: "/powersource", icon: <Zap size={16} /> },
     ],
@@ -47,6 +59,10 @@ const groups: NavGroup[] = [
     title: "Business",
     items: [
       { label: "GrayRevenue", href: "/gray-revenue", icon: <BarChart2 size={16} /> },
+      { label: "Web Dev", href: "/webdev", icon: <Globe size={16} /> },
+      { label: "Apex Peptides", href: "/webdev/apex-peptides", icon: <Code2 size={14} />, sub: true },
+      { label: "Specific Peptides", href: "/webdev/specific-peptides", icon: <Code2 size={14} />, sub: true },
+      { label: "House of Power", href: "/webdev/house-of-power", icon: <Code2 size={14} />, sub: true },
     ],
   },
   {
@@ -72,6 +88,8 @@ const groups: NavGroup[] = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
 
   const toggle = (title: string) =>
     setCollapsed((p) => ({ ...p, [title]: !p[title] }));
@@ -116,13 +134,90 @@ export default function Sidebar() {
           >
             A
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ fontSize: "14px", fontWeight: 600, color: "#B0E0E6", lineHeight: 1.2 }}>
               Christian
             </div>
             <div style={{ fontSize: "11px", color: "#7a8a95", lineHeight: 1.2 }}>
               corporealbeast
             </div>
+          </div>
+
+          {/* Notification bell */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => { setNotifOpen((v) => !v); if (!notifOpen && unreadCount > 0) markAllRead(); }}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: unreadCount > 0 ? "#B0E0E6" : "#7a8a95",
+                padding: "4px", borderRadius: "6px", display: "flex", alignItems: "center",
+              }}
+            >
+              <Bell size={16} />
+              {unreadCount > 0 && (
+                <span style={{
+                  position: "absolute", top: "-2px", right: "-2px",
+                  background: "#B0E0E6", color: "#23262A",
+                  fontSize: "9px", fontWeight: 700,
+                  borderRadius: "999px", minWidth: "14px", height: "14px",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 2px",
+                }}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification panel */}
+            {notifOpen && (
+              <div style={{
+                position: "fixed", top: "56px", left: "16px",
+                width: "300px", maxHeight: "360px", overflowY: "auto",
+                background: "#36393F", border: "1px solid #4a4d52",
+                borderRadius: "10px", zIndex: 1000, boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+              }}>
+                <div style={{
+                  padding: "10px 14px", borderBottom: "1px solid #4a4d52",
+                  fontSize: "12px", fontWeight: 600, color: "#9aa5b0",
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                }}>
+                  <span>Notifications</span>
+                  {unreadCount > 0 && (
+                    <button onClick={markAllRead} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "11px", color: "#B0E0E6" }}>
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{ padding: "16px", fontSize: "13px", color: "#7a8a95", textAlign: "center" }}>
+                    No notifications
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => markRead(n.id)}
+                      style={{
+                        padding: "10px 14px",
+                        borderBottom: "1px solid #3e4147",
+                        cursor: "pointer",
+                        background: n.read ? "transparent" : "rgba(176,224,230,0.04)",
+                      }}
+                    >
+                      <div style={{ fontSize: "13px", color: n.read ? "#9aa5b0" : "#B0E0E6", fontWeight: n.read ? 400 : 500 }}>
+                        {n.title}
+                      </div>
+                      {n.body && (
+                        <div style={{ fontSize: "11px", color: "#7a8a95", marginTop: "2px" }}>{n.body}</div>
+                      )}
+                      <div style={{ fontSize: "10px", color: "#7a8a95", marginTop: "3px" }}>
+                        {n.source} · {new Date(n.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -175,12 +270,12 @@ export default function Sidebar() {
                           display: "flex",
                           alignItems: "center",
                           gap: "8px",
-                          padding: "6px 16px",
+                          padding: item.sub ? "5px 16px 5px 32px" : "6px 16px",
                           margin: "1px 6px",
                           borderRadius: "6px",
-                          fontSize: "14px",
+                          fontSize: item.sub ? "13px" : "14px",
                           fontWeight: active ? 500 : 400,
-                          color: active ? "#B0E0E6" : "#9aa5b0",
+                          color: active ? "#B0E0E6" : item.sub ? "#7a8a95" : "#9aa5b0",
                           backgroundColor: active ? "rgba(176,224,230,0.1)" : "transparent",
                           textDecoration: "none",
                           transition: "background-color 0.1s, color 0.1s",

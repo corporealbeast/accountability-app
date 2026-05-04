@@ -13,9 +13,18 @@ export interface Peptide {
   purchaseUrl: string;
   studyLinks: string[];
   status: PeptideStatus;
+  sectionId?: string;
 }
 
-const STORAGE_KEY = "stack_peptides";
+export interface PeptideSection {
+  id: string;
+  name: string;
+  color: string;
+  collapsed: boolean;
+}
+
+const STORAGE_KEY  = "stack_peptides";
+const SECTIONS_KEY = "stack_peptides_sections";
 
 const seed: Peptide[] = [
   {
@@ -38,9 +47,7 @@ const seed: Peptide[] = [
     timing: "2mg · 2x / week · subq",
     cost: "$55 / 5mg vial",
     purchaseUrl: "https://www.peptidesciences.com",
-    studyLinks: [
-      "https://pubmed.ncbi.nlm.nih.gov/20385578/",
-    ],
+    studyLinks: ["https://pubmed.ncbi.nlm.nih.gov/20385578/"],
     status: "In Stock",
   },
   {
@@ -50,9 +57,7 @@ const seed: Peptide[] = [
     timing: "100mcg / 100mcg · Before bed · subq",
     cost: "$60 / blend vial",
     purchaseUrl: "https://www.corepeptides.com",
-    studyLinks: [
-      "https://pubmed.ncbi.nlm.nih.gov/16352683/",
-    ],
+    studyLinks: ["https://pubmed.ncbi.nlm.nih.gov/16352683/"],
     status: "Need to Order",
   },
   {
@@ -75,23 +80,29 @@ function uid() {
 }
 
 export function usePeptides() {
-  const [items, setItems] = useState<Peptide[]>(seed);
+  const [items,    setItems]    = useState<Peptide[]>(seed);
+  const [sections, setSections] = useState<PeptideSection[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setItems(JSON.parse(stored));
+      const si = localStorage.getItem(STORAGE_KEY);
+      if (si) setItems(JSON.parse(si));
+      const ss = localStorage.getItem(SECTIONS_KEY);
+      if (ss) setSections(JSON.parse(ss));
     } catch {}
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
   }, [items, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(sections)); } catch {}
+  }, [sections, hydrated]);
 
   const addItem = (data: Omit<Peptide, "id">) => {
     const item: Peptide = { ...data, id: uid() };
@@ -117,5 +128,24 @@ export function usePeptides() {
     );
   };
 
-  return { items, addItem, updateItem, deleteItem, toggleStatus };
+  const addSection = (name: string, color: string): string => {
+    const sec: PeptideSection = { id: `psec-${Date.now()}`, name, color, collapsed: false };
+    setSections((prev) => [...prev, sec]);
+    return sec.id;
+  };
+
+  const updateSection = (id: string, changes: Partial<Omit<PeptideSection, "id">>) => {
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
+  };
+
+  const deleteSection = (id: string) => {
+    setSections((prev) => prev.filter((s) => s.id !== id));
+    setItems((prev) => prev.map((i) => i.sectionId === id ? { ...i, sectionId: undefined } : i));
+  };
+
+  const moveItemToSection = (itemId: string, sectionId: string | undefined) => {
+    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, sectionId } : i)));
+  };
+
+  return { items, addItem, updateItem, deleteItem, toggleStatus, sections, addSection, updateSection, deleteSection, moveItemToSection };
 }

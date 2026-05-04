@@ -10,7 +10,6 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false 
 interface GraphNode {
   id: string;
   label: string;
-  category: Category;
   color: string;
   val: number;
 }
@@ -21,57 +20,65 @@ interface GraphLink {
 }
 
 // ---------------------------------------------------------------------------
-// Isolated graph component — only re-renders when node/link count changes.
-// selectedIdRef is a ref so canvas picks up the latest value on every frame
-// without triggering a React re-render of the graph.
+// Isolated graph component.
+// Only re-renders when node/link count or canvas size changes.
+// nodeTitlesRef / nodeColorsRef are read per animation frame so labels and
+// colors stay current without triggering a React re-render.
 // ---------------------------------------------------------------------------
 interface ValdGraphProps {
   graphData: { nodes: GraphNode[]; links: GraphLink[] };
   selectedIdRef: React.MutableRefObject<string | null>;
+  nodeTitlesRef: React.MutableRefObject<Map<string, string>>;
+  nodeColorsRef: React.MutableRefObject<Map<string, string>>;
   onNodeClick: (node: GraphNode) => void;
   width: number;
   height: number;
 }
 
 const ValdGraph = memo(
-  function ValdGraph({ graphData, selectedIdRef, onNodeClick, width, height }: ValdGraphProps) {
+  function ValdGraph({
+    graphData,
+    selectedIdRef,
+    nodeTitlesRef,
+    nodeColorsRef,
+    onNodeClick,
+    width,
+    height,
+  }: ValdGraphProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fgRef = useRef<any>(null);
 
-    // After the simulation settles, kill remaining energy so nodes stay put.
     const handleEngineStop = useCallback(() => {
-      if (fgRef.current) {
-        fgRef.current.d3Force("charge")?.strength(-30);
-      }
+      fgRef.current?.d3Force("charge")?.strength(-30);
     }, []);
 
-    // Safety net: regardless of engineStop, freeze after 3 s.
     useEffect(() => {
       const t = setTimeout(() => {
-        fgRef.current?.pauseAnimation?.();
-        fgRef.current?.resumeAnimation?.();
-        // Set alpha target to 0 so simulation stays cold.
-        // react-force-graph-2d exposes the underlying d3 simulation via d3Force.
+        // After 3 s the simulation has settled — nothing more to do.
+        // The engine already stopped via cooldownTicks.
       }, 3000);
       return () => clearTimeout(t);
-    }, [graphData]); // restart only when graph structure actually changes
+    }, [graphData]);
 
     const paintNode = useCallback(
       (node: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
         const n = node as GraphNode & { x: number; y: number };
         const isSelected = n.id === selectedIdRef.current;
+        // Read latest label/color from refs — no re-render needed
+        const label = nodeTitlesRef.current.get(n.id) ?? n.label;
+        const color = nodeColorsRef.current.get(n.id) ?? n.color;
         const fontSize = Math.max(10 / globalScale, 3);
 
         if (isSelected) {
           ctx.beginPath();
           ctx.arc(n.x, n.y, 10, 0, 2 * Math.PI);
-          ctx.fillStyle = n.color + "35";
+          ctx.fillStyle = color + "35";
           ctx.fill();
         }
 
         ctx.beginPath();
         ctx.arc(n.x, n.y, isSelected ? 7 : 5, 0, 2 * Math.PI);
-        ctx.fillStyle = n.color;
+        ctx.fillStyle = color;
         ctx.fill();
 
         if (isSelected) {
@@ -85,10 +92,10 @@ const ValdGraph = memo(
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
           ctx.fillStyle = isSelected ? "#ffffff" : "rgba(154,165,176,0.85)";
-          ctx.fillText(n.label, n.x, n.y + 8);
+          ctx.fillText(label, n.x, n.y + 8);
         }
       },
-      // intentionally omit selectedIdRef — it's a ref, always current on every frame
+      // Refs are stable objects — intentionally omitted from deps
       // eslint-disable-next-line react-hooks/exhaustive-deps
       []
     );
@@ -100,22 +107,19 @@ const ValdGraph = memo(
         width={width}
         height={height}
         backgroundColor="#1e2124"
-        nodeLabel="label"
         nodeRelSize={6}
-        linkColor={() => "rgba(176,224,230,0.15)"}
+        linkColor={() => "rgba(176,224,230,0.2)"}
         linkWidth={1.5}
         onNodeClick={onNodeClick as never}
         nodeCanvasObject={paintNode}
         nodeCanvasObjectMode={() => "replace"}
-        cooldownTicks={120}
+        cooldownTicks={130}
         d3AlphaDecay={0.025}
         d3VelocityDecay={0.4}
         onEngineStop={handleEngineStop}
       />
     );
   },
-  // Custom comparison: only re-render graph when structure (node/link count) changes
-  // or when canvas dimensions change. Selection changes are handled via ref.
   (prev, next) =>
     prev.graphData.nodes.length === next.graphData.nodes.length &&
     prev.graphData.links.length === next.graphData.links.length &&
@@ -132,10 +136,17 @@ export default function ValdPage() {
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Keep a ref in sync with selectedId so the canvas callback can read the
-  // latest value on every animation frame without the graph re-rendering.
+  // Sync selection into a ref so canvas reads latest without re-rendering graph
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
+
+  // Per-frame label / color maps — updated every render, read by canvas callback
+  const nodeTitlesRef = useRef<Map<string, string>>(new Map());
+  const nodeColorsRef = useRef<Map<string, string>>(new Map());
+  notes.forEach((n) => {
+    nodeTitlesRef.current.set(n.id, n.title);
+    nodeColorsRef.current.set(n.id, categoryColors[n.category]);
+  });
 
   const selectedNote = notes.find((n) => n.id === selectedId) ?? null;
 
@@ -153,34 +164,43 @@ export default function ValdPage() {
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  // Structural key: changes only when nodes are added/removed or links change.
-  // Does NOT change when a note's title/content/category is edited.
-  const structureKey = useMemo(
-    () => notes.map((n) => `${n.id}:${[...n.links].sort().join(",")}`).join("|"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [notes.length, notes.map((n) => n.links.join(",")).join("|")]
-  );
+  // Edge fingerprint — derived from RESOLVED edges (explicit links + wiki links).
+  // Physics only restart when the actual edge set changes, not on every keystroke.
+  const edgeFingerprint = useMemo(() => {
+    const edgeKeys: string[] = [];
+    const seen = new Set<string>();
+    notes.forEach((note) => {
+      const wikiIds = getWikiLinks(note);
+      [...new Set([...note.links, ...wikiIds])].forEach((targetId) => {
+        const key = [note.id, targetId].sort().join("--");
+        if (!seen.has(key) && notes.some((n) => n.id === targetId)) {
+          seen.add(key);
+          edgeKeys.push(key);
+        }
+      });
+    });
+    return `${notes.length}:${edgeKeys.sort().join("|")}`;
+  // notes must be in deps so wiki link resolution (which depends on note titles) re-runs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes]);
 
-  // Stable graph data — only recomputed on structural changes.
+  // Graph data — stable unless edgeFingerprint changes (i.e. actual structure changes)
   const graphData = useMemo(() => {
     const nodes: GraphNode[] = notes.map((n) => ({
       id: n.id,
       label: n.title,
-      category: n.category,
       color: categoryColors[n.category],
       val: 3,
     }));
 
-    const linkSet = new Set<string>();
+    const seen = new Set<string>();
     const links: GraphLink[] = [];
-
     notes.forEach((note) => {
       const wikiIds = getWikiLinks(note);
-      const allLinked = [...new Set([...note.links, ...wikiIds])];
-      allLinked.forEach((targetId) => {
+      [...new Set([...note.links, ...wikiIds])].forEach((targetId) => {
         const key = [note.id, targetId].sort().join("--");
-        if (!linkSet.has(key) && notes.some((n) => n.id === targetId)) {
-          linkSet.add(key);
+        if (!seen.has(key) && notes.some((n) => n.id === targetId)) {
+          seen.add(key);
           links.push({ source: note.id, target: targetId });
         }
       });
@@ -188,9 +208,8 @@ export default function ValdPage() {
 
     return { nodes, links };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [structureKey]);
+  }, [edgeFingerprint]);
 
-  // Stable click handler — doesn't change between renders.
   const handleNodeClick = useCallback((node: GraphNode) => {
     setSelectedId((prev) => (prev === node.id ? null : node.id));
   }, []);
@@ -217,7 +236,7 @@ export default function ValdPage() {
     >
       {/* Graph canvas */}
       <div ref={containerRef} style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-        {/* Header overlay */}
+        {/* Header */}
         <div
           style={{
             position: "absolute",
@@ -263,50 +282,24 @@ export default function ValdPage() {
         </div>
 
         {/* Category legend */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 20,
-            left: 20,
-            zIndex: 10,
-            display: "flex",
-            flexDirection: "column",
-            gap: "4px",
-          }}
-        >
+        <div style={{ position: "absolute", bottom: 20, left: 20, zIndex: 10, display: "flex", flexDirection: "column", gap: "4px" }}>
           {categories.map((cat) => (
             <div key={cat} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <div
-                style={{
-                  width: "10px",
-                  height: "10px",
-                  borderRadius: "50%",
-                  backgroundColor: categoryColors[cat],
-                  flexShrink: 0,
-                }}
-              />
+              <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: categoryColors[cat], flexShrink: 0 }} />
               <span style={{ fontSize: "11px", color: "#9aa5b0" }}>{cat}</span>
             </div>
           ))}
         </div>
 
-        {/* Node / link count */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 20,
-            right: 20,
-            zIndex: 10,
-            fontSize: "11px",
-            color: "#7a8a95",
-          }}
-        >
+        <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 10, fontSize: "11px", color: "#7a8a95" }}>
           {notes.length} nodes · {graphData.links.length} links
         </div>
 
         <ValdGraph
           graphData={graphData}
           selectedIdRef={selectedIdRef}
+          nodeTitlesRef={nodeTitlesRef}
+          nodeColorsRef={nodeColorsRef}
           onNodeClick={handleNodeClick}
           width={graphWidth}
           height={dimensions.height}
@@ -324,6 +317,7 @@ export default function ValdPage() {
             setSelectedId(null);
           }}
           onClose={() => setSelectedId(null)}
+          onSelectNote={setSelectedId}
         />
       )}
     </div>
@@ -339,18 +333,22 @@ function SidePanel({
   onUpdate,
   onDelete,
   onClose,
+  onSelectNote,
 }: {
   note: ValdNote;
   notes: ValdNote[];
   onUpdate: (changes: Partial<Omit<ValdNote, "id">>) => void;
   onDelete: () => void;
   onClose: () => void;
+  onSelectNote: (id: string) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const linkedNotes = useMemo(() => {
     const titles = [...note.content.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1]);
-    return titles.map((t) => notes.find((n) => n.title === t)).filter(Boolean) as ValdNote[];
+    return titles
+      .map((t) => notes.find((n) => n.title === t))
+      .filter((n): n is ValdNote => n !== undefined);
   }, [note.content, notes]);
 
   return (
@@ -366,7 +364,7 @@ function SidePanel({
         overflow: "hidden",
       }}
     >
-      {/* Panel header */}
+      {/* Header */}
       <div
         style={{
           padding: "16px 16px 12px",
@@ -396,30 +394,13 @@ function SidePanel({
             <>
               <button
                 onClick={onDelete}
-                style={{
-                  fontSize: "11px",
-                  padding: "3px 8px",
-                  backgroundColor: "#e05252",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
+                style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "#e05252", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: 600 }}
               >
                 Confirm Delete
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                style={{
-                  fontSize: "11px",
-                  padding: "3px 8px",
-                  backgroundColor: "transparent",
-                  color: "#7a8a95",
-                  border: "1px solid #36393F",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
+                style={{ fontSize: "11px", padding: "3px 8px", backgroundColor: "transparent", color: "#7a8a95", border: "1px solid #36393F", borderRadius: "4px", cursor: "pointer" }}
               >
                 Cancel
               </button>
@@ -472,15 +453,14 @@ function SidePanel({
           }}
         >
           {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
+            <option key={cat} value={cat}>{cat}</option>
           ))}
         </select>
       </div>
 
       <div style={{ height: "1px", backgroundColor: "#36393F", margin: "0 16px" }} />
 
+      {/* Content */}
       <textarea
         value={note.content}
         onChange={(e) => onUpdate({ content: e.target.value })}
@@ -500,40 +480,64 @@ function SidePanel({
         }}
       />
 
+      {/* Linked notes — clickable to jump */}
       {linkedNotes.length > 0 && (
-        <div
-          style={{
-            borderTop: "1px solid #36393F",
-            padding: "12px 16px",
-            maxHeight: "140px",
-            overflowY: "auto",
-          }}
-        >
+        <div style={{ borderTop: "1px solid #36393F", padding: "12px 16px", maxHeight: "160px", overflowY: "auto" }}>
           <div style={{ fontSize: "10px", color: "#7a8a95", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "8px" }}>
             Linked Notes ({linkedNotes.length})
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             {linkedNotes.map((ln) => (
-              <div key={ln.id} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#9aa5b0" }}>
-                <div
-                  style={{
-                    width: "7px",
-                    height: "7px",
-                    borderRadius: "50%",
-                    backgroundColor: categoryColors[ln.category],
-                    flexShrink: 0,
-                  }}
-                />
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {ln.title}
-                </span>
-                <span style={{ fontSize: "10px", color: "#4a5568", flexShrink: 0 }}>{ln.category}</span>
-              </div>
+              <LinkedNoteRow
+                key={ln.id}
+                note={ln}
+                onClick={() => onSelectNote(ln.id)}
+              />
             ))}
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function LinkedNoteRow({ note, onClick }: { note: ValdNote; onClick: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "6px 8px",
+        borderRadius: "5px",
+        border: "none",
+        backgroundColor: hov ? "rgba(176,224,230,0.07)" : "transparent",
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "background-color 0.1s",
+        width: "100%",
+      }}
+    >
+      <div
+        style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "50%",
+          backgroundColor: categoryColors[note.category],
+          flexShrink: 0,
+        }}
+      />
+      <span style={{ fontSize: "13px", color: hov ? "#B0E0E6" : "#9aa5b0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, transition: "color 0.1s" }}>
+        {note.title}
+      </span>
+      <span style={{ fontSize: "10px", color: "#4a5568", flexShrink: 0 }}>
+        {note.category}
+      </span>
+    </button>
   );
 }
 

@@ -98,8 +98,8 @@ export default function StrengthCollectivePage() {
           Recent Workouts
         </h2>
         <div
-          className="rounded-xl divide-y"
-          style={{ backgroundColor: "#36393F", border: "1px solid #2C2F33", divideColor: "#2C2F33" }}
+          className="rounded-xl divide-y divide-[#2C2F33]"
+          style={{ backgroundColor: "#36393F", border: "1px solid #2C2F33" }}
         >
           {recentWorkouts.map((w, i) => (
             <div key={i} className="flex items-center justify-between px-5 py-4 gap-4">

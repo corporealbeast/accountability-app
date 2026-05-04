@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/daily-brief",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/lead-followup",
+      "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/gymmaster-sync",
+      "schedule": "0 10 * * *"
+    }
+  ]
+}

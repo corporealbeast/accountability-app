@@ -3,11 +3,11 @@
 import { useState, useRef, useCallback } from "react";
 import {
   Users, Calendar, Sparkles, ChevronRight, X,
-  Plus, Trash2, GripHorizontal, Check,
+  Plus, Trash2, GripHorizontal, Check, ClipboardList, ChevronDown, ChevronUp,
 } from "lucide-react";
 import {
   useAthletes,
-  Athlete, MacroBlock, BlockType,
+  Athlete, MacroBlock, BlockType, ExerciseRow,
   blockColors, blockDefaults,
 } from "@/hooks/useAthletes";
 
@@ -450,10 +450,11 @@ function GenerateModal({ athlete, onClose }: { athlete: Athlete; onClose: () => 
 // MACROCYCLE VISUALIZER TAB
 // ─────────────────────────────────────────────────────────────────────────────
 function MacrocycleTab({ hook }: { hook: ReturnType<typeof useAthletes> }) {
-  const { athletes, blocks, addBlock, updateBlock, deleteBlock } = hook;
+  const { athletes, blocks, addBlock, updateBlock, deleteBlock, getPhase, updatePhaseNotes, addExercise, updateExercise, deleteExercise } = hook;
   const [selectedAthleteId, setSelectedAthleteId] = useState(athletes[0]?.id ?? "");
   const [year, setYear] = useState(2026);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [phaseOpen, setPhaseOpen] = useState(false);
   const [hoverMonth, setHoverMonth] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -644,8 +645,22 @@ function MacrocycleTab({ hook }: { hook: ReturnType<typeof useAthletes> }) {
         <BlockEditor
           block={selectedBlock}
           onUpdate={(ch) => updateBlock(selectedBlock.id, ch)}
-          onDelete={() => { deleteBlock(selectedBlock.id); setSelectedBlockId(null); }}
-          onClose={() => setSelectedBlockId(null)}
+          onDelete={() => { deleteBlock(selectedBlock.id); setSelectedBlockId(null); setPhaseOpen(false); }}
+          onClose={() => { setSelectedBlockId(null); setPhaseOpen(false); }}
+          phaseOpen={phaseOpen}
+          onTogglePhase={() => setPhaseOpen((v) => !v)}
+        />
+      )}
+
+      {/* Phase plan panel */}
+      {selectedBlock && phaseOpen && (
+        <PhasePanel
+          block={selectedBlock}
+          phase={getPhase(selectedBlock.id)}
+          onUpdateNotes={(n) => updatePhaseNotes(selectedBlock.id, n)}
+          onAddExercise={(week) => addExercise(selectedBlock.id, week)}
+          onUpdateExercise={(rowId, ch) => updateExercise(selectedBlock.id, rowId, ch)}
+          onDeleteExercise={(rowId) => deleteExercise(selectedBlock.id, rowId)}
         />
       )}
     </div>
@@ -718,15 +733,18 @@ function MacroBlockBar({
 }
 
 function BlockEditor({
-  block, onUpdate, onDelete, onClose,
+  block, onUpdate, onDelete, onClose, phaseOpen, onTogglePhase,
 }: {
   block: MacroBlock;
   onUpdate: (ch: Partial<Omit<MacroBlock, "id">>) => void;
   onDelete: () => void;
   onClose: () => void;
+  phaseOpen: boolean;
+  onTogglePhase: () => void;
 }) {
   const [confirm, setConfirm] = useState(false);
   const color = blockColors[block.type];
+  const totalWeeks = block.duration * 4;
 
   return (
     <div style={{ marginTop: "12px", backgroundColor: "#23262A", border: `1px solid ${color}40`, borderRadius: "10px", padding: "16px", display: "flex", gap: "16px", alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -753,10 +771,27 @@ function BlockEditor({
         <Label>Duration</Label>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <button onClick={() => onUpdate({ duration: Math.max(1, block.duration - 1) })} style={adjBtn}>−</button>
-          <span style={{ fontSize: "13px", color: "#B0E0E6", minWidth: "50px", textAlign: "center" }}>{block.duration} mo</span>
+          <span style={{ fontSize: "13px", color: "#B0E0E6", minWidth: "50px", textAlign: "center" }}>{block.duration} mo · {totalWeeks} wks</span>
           <button onClick={() => onUpdate({ duration: Math.min(12 - block.startMonth, block.duration + 1) })} style={adjBtn}>+</button>
         </div>
       </div>
+
+      {/* Phase plan toggle */}
+      <button
+        onClick={onTogglePhase}
+        style={{
+          display: "flex", alignItems: "center", gap: "6px",
+          padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: 600,
+          backgroundColor: phaseOpen ? color + "25" : "transparent",
+          border: `1px solid ${phaseOpen ? color + "70" : "#36393F"}`,
+          color: phaseOpen ? color : "#9aa5b0",
+          transition: "all 0.15s",
+        }}
+      >
+        <ClipboardList size={13} />
+        Phase Plan
+        {phaseOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+      </button>
 
       <div style={{ display: "flex", gap: "6px", alignItems: "flex-end", marginLeft: "auto" }}>
         {confirm ? (
@@ -771,6 +806,267 @@ function BlockEditor({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE PLAN PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+function PhasePanel({
+  block, phase, onUpdateNotes, onAddExercise, onUpdateExercise, onDeleteExercise,
+}: {
+  block: MacroBlock;
+  phase: { notes: string; exercises: ExerciseRow[] };
+  onUpdateNotes: (n: string) => void;
+  onAddExercise: (week: number) => void;
+  onUpdateExercise: (rowId: string, ch: Partial<Omit<ExerciseRow, "id">>) => void;
+  onDeleteExercise: (rowId: string) => void;
+}) {
+  const color = blockColors[block.type];
+  const totalWeeks = block.duration * 4;
+  const weekNums = Array.from({ length: totalWeeks }, (_, i) => i + 1);
+  const [activeWeek, setActiveWeek] = useState<number | "all">(1);
+
+  const visibleExercises = activeWeek === "all"
+    ? phase.exercises
+    : phase.exercises.filter((e) => e.week === activeWeek);
+
+  const groupedByWeek = weekNums.map((w) => ({
+    week: w,
+    rows: phase.exercises.filter((e) => e.week === w),
+  }));
+
+  return (
+    <div style={{ marginTop: "8px", backgroundColor: "#1e2124", border: `1px solid ${color}30`, borderRadius: "12px", overflow: "hidden" }}>
+      {/* Panel header */}
+      <div style={{ padding: "14px 18px", borderBottom: "1px solid #36393F", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <ClipboardList size={15} color={color} />
+          <span style={{ fontSize: "14px", fontWeight: 700, color }}>
+            {block.label} · Phase Plan
+          </span>
+          <span style={{ fontSize: "11px", color: "#7a8a95" }}>
+            {block.duration} months · {totalWeeks} weeks · {MONTHS[block.startMonth]}–{MONTHS[Math.min(11, block.startMonth + block.duration - 1)]}
+          </span>
+        </div>
+        <div style={{ fontSize: "11px", color: "#7a8a95" }}>
+          {phase.exercises.length} exercises programmed
+        </div>
+      </div>
+
+      {/* Week tabs */}
+      <div style={{ display: "flex", gap: "0", borderBottom: "1px solid #36393F", overflowX: "auto" }}>
+        <WeekTab active={activeWeek === "all"} onClick={() => setActiveWeek("all")} color={color}>
+          All
+        </WeekTab>
+        {weekNums.map((w) => (
+          <WeekTab key={w} active={activeWeek === w} onClick={() => setActiveWeek(w)} color={color}>
+            Wk {w}
+            {phase.exercises.filter((e) => e.week === w).length > 0 && (
+              <span style={{ marginLeft: "4px", fontSize: "9px", opacity: 0.7 }}>
+                ·{phase.exercises.filter((e) => e.week === w).length}
+              </span>
+            )}
+          </WeekTab>
+        ))}
+      </div>
+
+      {/* Exercise table */}
+      <div style={{ padding: "16px 18px" }}>
+        {activeWeek === "all" ? (
+          /* All weeks view — grouped */
+          groupedByWeek.some((g) => g.rows.length > 0) ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {groupedByWeek.filter((g) => g.rows.length > 0).map(({ week, rows }) => (
+                <div key={week}>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: color, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>
+                    Week {week}
+                  </div>
+                  <ExerciseTable
+                    rows={rows}
+                    onUpdate={onUpdateExercise}
+                    onDelete={onDeleteExercise}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyPhase color={color} onAdd={() => onAddExercise(1)} />
+          )
+        ) : (
+          /* Single week view */
+          <div>
+            <ExerciseTable
+              rows={visibleExercises}
+              onUpdate={onUpdateExercise}
+              onDelete={onDeleteExercise}
+            />
+            {visibleExercises.length === 0 && (
+              <EmptyPhase color={color} onAdd={() => onAddExercise(activeWeek as number)} label={`Week ${activeWeek}`} />
+            )}
+            <button
+              onClick={() => onAddExercise(activeWeek as number)}
+              style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#7a8a95", background: "none", border: "1px dashed #36393F", borderRadius: "6px", padding: "7px 14px", cursor: "pointer", width: "100%" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = color; (e.currentTarget as HTMLButtonElement).style.color = color; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#36393F"; (e.currentTarget as HTMLButtonElement).style.color = "#7a8a95"; }}
+            >
+              <Plus size={13} /> Add exercise to Week {activeWeek}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Phase notes */}
+      <div style={{ borderTop: "1px solid #36393F", padding: "14px 18px" }}>
+        <div style={{ fontSize: "10px", color: "#7a8a95", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>
+          Phase Notes
+        </div>
+        <textarea
+          value={phase.notes}
+          onChange={(e) => onUpdateNotes(e.target.value)}
+          placeholder="Programming rationale, phase goals, key indicators, periodization notes..."
+          rows={3}
+          style={{ width: "100%", padding: "8px 10px", backgroundColor: "#2C2F33", border: "1px solid #36393F", borderRadius: "6px", color: "#9aa5b0", fontSize: "13px", lineHeight: 1.6, outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function WeekTab({ children, active, onClick, color }: { children: React.ReactNode; active: boolean; onClick: () => void; color: string }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "8px 14px", fontSize: "11px", fontWeight: active ? 600 : 400,
+        color: active ? color : "#7a8a95",
+        background: "none", border: "none", borderBottom: active ? `2px solid ${color}` : "2px solid transparent",
+        cursor: "pointer", whiteSpace: "nowrap", transition: "color 0.1s",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ExerciseTable({
+  rows, onUpdate, onDelete,
+}: {
+  rows: ExerciseRow[];
+  onUpdate: (rowId: string, ch: Partial<Omit<ExerciseRow, "id">>) => void;
+  onDelete: (rowId: string) => void;
+}) {
+  if (rows.length === 0) return null;
+
+  const cols = [
+    { key: "day",       label: "Day",       width: "80px",  placeholder: "Day 1" },
+    { key: "exercise",  label: "Exercise",  width: "1fr",   placeholder: "Squat, Log Press..." },
+    { key: "sets",      label: "Sets",      width: "60px",  placeholder: "4" },
+    { key: "reps",      label: "Reps",      width: "70px",  placeholder: "5" },
+    { key: "percentRM", label: "% 1RM",     width: "80px",  placeholder: "80%" },
+    { key: "notes",     label: "Notes",     width: "1fr",   placeholder: "Cues, rest, tempo..." },
+  ];
+
+  const gridCols = cols.map((c) => c.width).join(" ") + " 36px";
+
+  return (
+    <div style={{ border: "1px solid #36393F", borderRadius: "8px", overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: "8px", padding: "8px 12px", borderBottom: "1px solid #36393F", backgroundColor: "#23262A" }}>
+        {cols.map((c) => (
+          <div key={c.key} style={{ fontSize: "10px", fontWeight: 600, color: "#7a8a95", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+            {c.label}
+          </div>
+        ))}
+        <div />
+      </div>
+
+      {/* Rows */}
+      {rows.map((row, idx) => (
+        <ExerciseRowComp
+          key={row.id}
+          row={row}
+          cols={cols}
+          gridCols={gridCols}
+          isLast={idx === rows.length - 1}
+          onUpdate={(ch) => onUpdate(row.id, ch)}
+          onDelete={() => onDelete(row.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ExerciseRowComp({ row, cols, gridCols, isLast, onUpdate, onDelete }: {
+  row: ExerciseRow;
+  cols: { key: string; label: string; width: string; placeholder: string }[];
+  gridCols: string;
+  isLast: boolean;
+  onUpdate: (ch: Partial<Omit<ExerciseRow, "id">>) => void;
+  onDelete: () => void;
+}) {
+  const [hov, setHov] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => { setHov(false); setConfirm(false); }}
+      style={{
+        display: "grid", gridTemplateColumns: gridCols, gap: "8px",
+        padding: "8px 12px",
+        borderBottom: isLast ? "none" : "1px solid #36393F",
+        backgroundColor: hov ? "rgba(255,255,255,0.02)" : "transparent",
+        alignItems: "center",
+      }}
+    >
+      {cols.map(({ key, placeholder }) => (
+        <input
+          key={key}
+          value={row[key as keyof ExerciseRow] as string}
+          onChange={(e) => onUpdate({ [key]: e.target.value })}
+          placeholder={placeholder}
+          style={{
+            padding: "4px 7px", backgroundColor: "transparent",
+            border: "1px solid transparent", borderRadius: "4px",
+            color: key === "exercise" ? "#B0E0E6" : "#9aa5b0",
+            fontSize: "12px", outline: "none", fontFamily: "inherit",
+            width: "100%", boxSizing: "border-box",
+            transition: "border-color 0.1s, background-color 0.1s",
+          }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "#36393F"; e.currentTarget.style.backgroundColor = "#2C2F33"; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.backgroundColor = "transparent"; }}
+        />
+      ))}
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        {confirm ? (
+          <button onClick={onDelete} style={{ fontSize: "10px", padding: "2px 6px", backgroundColor: "#e05252", color: "#fff", border: "none", borderRadius: "3px", cursor: "pointer" }}>✓</button>
+        ) : (
+          <button
+            onClick={() => setConfirm(true)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: hov ? "#e05252" : "transparent", padding: "2px", display: "flex", alignItems: "center" }}
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmptyPhase({ color, onAdd, label }: { color: string; onAdd: () => void; label?: string }) {
+  return (
+    <div style={{ padding: "32px 0", textAlign: "center" }}>
+      <div style={{ fontSize: "13px", color: "#4a5568", marginBottom: "12px" }}>
+        No exercises programmed{label ? ` for ${label}` : ""} yet.
+      </div>
+      <button
+        onClick={onAdd}
+        style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 600, padding: "8px 16px", borderRadius: "6px", cursor: "pointer", backgroundColor: color + "20", border: `1px solid ${color}50`, color }}
+      >
+        <Plus size={13} /> Add First Exercise
+      </button>
     </div>
   );
 }
