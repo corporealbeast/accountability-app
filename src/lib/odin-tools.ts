@@ -329,7 +329,7 @@ export async function executeTool(name: string, input: Record<string, unknown>):
         const lists = await getTaskLists()
         const listId = lists[0]?.id
         if (!listId) return 'No Google Task lists found. Connect Google Tasks first.'
-        const task = await createTask(listId, title, notes, dueISO)
+        const task = await createTask(listId, title, notes, dueISO ? new Date(dueISO) : undefined)
         return `Google Task created: "${task.title}" (list: ${lists[0].title})`
       }
 
