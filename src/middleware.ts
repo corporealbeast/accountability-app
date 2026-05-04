@@ -1,51 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 
-const PUBLIC_PATHS = ['/login', '/api/webhooks', '/api/telegram', '/api/cron']
-
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  // Allow public paths through without auth check
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next()
-  }
-
-  const response = NextResponse.next()
-
-  const supabaseConfigured =
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseConfigured) {
-    return response
-  }
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  // Auth redirect disabled until Supabase is fully configured
-  // const { data: { user } } = await supabase.auth.getUser()
-  // if (!user) {
-  //   const loginUrl = new URL('/login', request.url)
-  //   loginUrl.searchParams.set('next', pathname)
-  //   return NextResponse.redirect(loginUrl)
-  // }
-
-  return response
+// Auth disabled until Supabase is configured
+export function middleware(_request: NextRequest) {
+  return NextResponse.next()
 }
 
 export const config = {

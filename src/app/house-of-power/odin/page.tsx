@@ -18,6 +18,7 @@ interface Activity {
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  image?: string; // base64 data URL
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -267,8 +268,10 @@ export default function OdinPage() {
   const [messages,    setMessages]    = useState<ChatMessage[]>([
     { role: "assistant", content: "I'm Eden. Ask me what I'm working on, or check the pipeline for current tasks." },
   ]);
-  const [input,       setInput]       = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
+  const [input,        setInput]       = useState("");
+  const [chatLoading,  setChatLoading] = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -299,18 +302,46 @@ export default function OdinPage() {
       .finally(() => setLoading(false));
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPendingImage(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || chatLoading) return;
+    if ((!text && !pendingImage) || chatLoading) return;
     setInput("");
-    const newMessages: ChatMessage[] = [...messages, { role: "user", content: text }];
+    const image = pendingImage;
+    setPendingImage(null);
+
+    const newMessages: ChatMessage[] = [...messages, { role: "user", content: text || "(image)", image: image ?? undefined }];
     setMessages(newMessages);
     setChatLoading(true);
     try {
+      // Build API messages — convert image to Anthropic vision format
+      const apiMessages = newMessages
+        .filter((_, i) => !(i === 0 && newMessages[0].role === "assistant"))
+        .map((m) => {
+          if (m.image) {
+            const [meta, data] = m.image.split(",");
+            const mediaType = meta.split(":")[1].split(";")[0];
+            const content = [
+              { type: "image", source: { type: "base64", media_type: mediaType, data } },
+              ...(m.content && m.content !== "(image)" ? [{ type: "text", text: m.content }] : []),
+            ];
+            return { role: m.role, content };
+          }
+          return { role: m.role, content: m.content };
+        });
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages: newMessages.map((m) => ({ role: m.role, content: m.content })), context: buildContext(activities, tasks) }),
+        body: JSON.stringify({ messages: apiMessages, context: buildContext(activities, tasks) }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply ?? data.error ?? "No response." }]);
@@ -374,7 +405,8 @@ export default function OdinPage() {
           {messages.map((msg, i) => (
             <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
               <div style={{ maxWidth: "70%", padding: "7px 11px", borderRadius: msg.role === "user" ? "10px 10px 2px 10px" : "10px 10px 10px 2px", backgroundColor: msg.role === "user" ? "#B0E0E6" : "#2C2F33", color: msg.role === "user" ? "#23262A" : "#9aa5b0", fontSize: "13px", lineHeight: 1.5 }}>
-                {msg.content}
+                {msg.image && <img src={msg.image} alt="attached" style={{ maxWidth: "100%", borderRadius: "6px", marginBottom: msg.content && msg.content !== "(image)" ? "6px" : 0, display: "block" }} />}
+                {msg.content && msg.content !== "(image)" && msg.content}
               </div>
             </div>
           ))}
@@ -386,16 +418,38 @@ export default function OdinPage() {
           <div ref={bottomRef} />
         </div>
 
+        {/* Image preview */}
+        {pendingImage && (
+          <div style={{ padding: "6px 12px 0", display: "flex", alignItems: "center", gap: "8px" }}>
+            <img src={pendingImage} alt="pending" style={{ height: "48px", borderRadius: "6px", objectFit: "cover" }} />
+            <button onClick={() => setPendingImage(null)} style={{ fontSize: "11px", color: "#7a8a95", background: "none", border: "none", cursor: "pointer" }}>✕ Remove</button>
+          </div>
+        )}
+
         {/* Input */}
         <div style={{ padding: "10px 12px", borderTop: "1px solid #2C2F33", display: "flex", gap: "8px" }}>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
+          <button onClick={() => fileInputRef.current?.click()} title="Attach image" style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid #36393F", backgroundColor: "transparent", color: "#7a8a95", fontSize: "14px", cursor: "pointer", flexShrink: 0 }}>
+            📎
+          </button>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            placeholder="Ask Eden anything…"
+            onPaste={(e) => {
+              const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
+              if (!item) return;
+              e.preventDefault();
+              const file = item.getAsFile();
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = () => setPendingImage(reader.result as string);
+              reader.readAsDataURL(file);
+            }}
+            placeholder="Ask Eden anything… or paste an image"
             style={{ flex: 1, backgroundColor: "#2C2F33", border: "1px solid #23262A", borderRadius: "8px", padding: "8px 12px", fontSize: "13px", color: "#B0E0E6", outline: "none", fontFamily: "inherit" }}
           />
-          <button onClick={sendMessage} disabled={!input.trim() || chatLoading} style={{ padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: input.trim() && !chatLoading ? "#B0E0E6" : "#2C2F33", color: input.trim() && !chatLoading ? "#23262A" : "#4a5568", fontSize: "13px", fontWeight: 600, cursor: input.trim() && !chatLoading ? "pointer" : "default", flexShrink: 0 }}>
+          <button onClick={sendMessage} disabled={(!input.trim() && !pendingImage) || chatLoading} style={{ padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: (input.trim() || pendingImage) && !chatLoading ? "#B0E0E6" : "#2C2F33", color: (input.trim() || pendingImage) && !chatLoading ? "#23262A" : "#4a5568", fontSize: "13px", fontWeight: 600, cursor: (input.trim() || pendingImage) && !chatLoading ? "pointer" : "default", flexShrink: 0 }}>
             Send
           </button>
         </div>

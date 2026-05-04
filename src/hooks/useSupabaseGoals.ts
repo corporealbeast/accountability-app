@@ -23,6 +23,7 @@ export function useSupabaseGoals() {
   const supabase = getSupabaseBrowserClient();
 
   const fetchGoals = useCallback(async () => {
+    if (!supabase) { setLoading(false); return; }
     const { data } = await supabase
       .from("goals")
       .select("*")
@@ -46,6 +47,7 @@ export function useSupabaseGoals() {
   }, [supabase]);
 
   useEffect(() => {
+    if (!supabase) { setLoading(false); return; }
     fetchGoals();
 
     const channel = supabase
@@ -57,6 +59,7 @@ export function useSupabaseGoals() {
   }, [fetchGoals, supabase]);
 
   const addGoal = async (data: Omit<Goal, "id" | "createdAt">) => {
+    if (!supabase) return "";
     const { data: row } = await supabase
       .from("goals")
       .insert({ title: data.title, category: data.category, status: data.status, progress: data.progress, target: data.target, due: data.due })
@@ -66,6 +69,7 @@ export function useSupabaseGoals() {
   };
 
   const updateGoal = async (id: string, changes: Partial<Omit<Goal, "id" | "createdAt">>) => {
+    if (!supabase) return;
     await supabase
       .from("goals")
       .update({ ...changes, updated_at: new Date().toISOString() })
@@ -74,6 +78,7 @@ export function useSupabaseGoals() {
   };
 
   const deleteGoal = async (id: string) => {
+    if (!supabase) return;
     await supabase.from("goals").delete().eq("id", id);
     setGoals((prev) => prev.filter((g) => g.id !== id));
   };

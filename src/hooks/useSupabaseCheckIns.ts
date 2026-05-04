@@ -22,6 +22,7 @@ export function useSupabaseCheckIns() {
   const supabase = getSupabaseBrowserClient();
 
   const fetchCheckIns = useCallback(async () => {
+    if (!supabase) { setLoading(false); return; }
     const { data } = await supabase
       .from("check_ins")
       .select("*")
@@ -44,6 +45,7 @@ export function useSupabaseCheckIns() {
   }, [supabase]);
 
   useEffect(() => {
+    if (!supabase) { setLoading(false); return; }
     fetchCheckIns();
 
     const channel = supabase
@@ -58,6 +60,7 @@ export function useSupabaseCheckIns() {
   const todayCheckIn = checkIns.find((c) => c.date === todayStr);
 
   const submitCheckIn = async (data: Omit<CheckIn, "id" | "createdAt">) => {
+    if (!supabase) return "";
     const { data: row } = await supabase
       .from("check_ins")
       .upsert({ date: data.date, mood: data.mood, wins: data.wins, struggles: data.struggles, tomorrow: data.tomorrow }, { onConflict: "user_id,date" })
@@ -66,7 +69,6 @@ export function useSupabaseCheckIns() {
     return row?.id ?? "";
   };
 
-  // Streak: consecutive days with a check-in up to today
   const streak = (() => {
     let count = 0;
     const today = new Date();

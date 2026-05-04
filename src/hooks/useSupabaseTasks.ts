@@ -6,8 +6,6 @@ import type { OdinTask, TaskStatus, TaskCategory, TaskPriority } from "./useOdin
 
 export type { OdinTask, TaskStatus, TaskCategory, TaskPriority };
 
-// Supabase-backed replacement for useOdinTasks.
-// Identical public interface — pages require no changes.
 export function useOdinTasksDB() {
   const [tasks, setTasks] = useState<OdinTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +13,7 @@ export function useOdinTasksDB() {
   const supabase = getSupabaseBrowserClient();
 
   const fetchTasks = useCallback(async () => {
+    if (!supabase) { setLoading(false); return; }
     const { data } = await supabase
       .from("odin_tasks")
       .select("*")
@@ -37,6 +36,7 @@ export function useOdinTasksDB() {
   }, [supabase]);
 
   useEffect(() => {
+    if (!supabase) { setLoading(false); return; }
     fetchTasks();
 
     const channel = supabase
@@ -52,6 +52,7 @@ export function useOdinTasksDB() {
   }, [fetchTasks, supabase]);
 
   const moveTask = async (id: string, status: TaskStatus) => {
+    if (!supabase) return;
     await supabase
       .from("odin_tasks")
       .update({ status, updated_at: new Date().toISOString() })
@@ -60,6 +61,7 @@ export function useOdinTasksDB() {
   };
 
   const addTask = async (data: Omit<OdinTask, "id" | "createdAt">) => {
+    if (!supabase) return "";
     const { data: row } = await supabase
       .from("odin_tasks")
       .insert({
@@ -76,6 +78,7 @@ export function useOdinTasksDB() {
   };
 
   const deleteTask = async (id: string) => {
+    if (!supabase) return;
     await supabase.from("odin_tasks").delete().eq("id", id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
   };

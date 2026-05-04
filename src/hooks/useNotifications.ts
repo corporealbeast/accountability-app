@@ -20,6 +20,7 @@ export function useNotifications() {
   const supabase = getSupabaseBrowserClient();
 
   const fetchNotifications = useCallback(async () => {
+    if (!supabase) return;
     const { data } = await supabase
       .from("notifications")
       .select("*")
@@ -42,6 +43,7 @@ export function useNotifications() {
   }, [supabase]);
 
   useEffect(() => {
+    if (!supabase) return;
     fetchNotifications();
 
     const channel = supabase
@@ -55,6 +57,7 @@ export function useNotifications() {
   }, [fetchNotifications, supabase]);
 
   const markAllRead = async () => {
+    if (!supabase) return;
     await supabase
       .from("notifications")
       .update({ read: true })
@@ -64,6 +67,7 @@ export function useNotifications() {
   };
 
   const markRead = async (id: string) => {
+    if (!supabase) return;
     await supabase.from("notifications").update({ read: true }).eq("id", id);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     setUnreadCount((prev) => Math.max(0, prev - 1));

@@ -12,12 +12,10 @@ export interface BloodworkEntry {
   notes?: string;
   fileName?: string;
   fileType?: string;
-  filePath?: string; // Supabase Storage path (replaces base64)
+  filePath?: string;
   createdAt: string;
 }
 
-// Supabase-backed replacement for useBloodwork.
-// Files upload to Supabase Storage bucket "bloodwork" instead of base64 localStorage.
 export function useSupabaseBloodwork() {
   const [items, setItems] = useState<BloodworkEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +23,7 @@ export function useSupabaseBloodwork() {
   const supabase = getSupabaseBrowserClient();
 
   const fetchItems = useCallback(async () => {
+    if (!supabase) { setLoading(false); return; }
     const { data } = await supabase
       .from("bloodwork")
       .select("*")
@@ -50,6 +49,7 @@ export function useSupabaseBloodwork() {
   }, [supabase]);
 
   useEffect(() => {
+    if (!supabase) { setLoading(false); return; }
     fetchItems();
 
     const channel = supabase
@@ -61,6 +61,7 @@ export function useSupabaseBloodwork() {
   }, [fetchItems, supabase]);
 
   const addItem = async (data: Omit<BloodworkEntry, "id" | "createdAt">, file?: File) => {
+    if (!supabase) return "";
     let filePath: string | undefined;
 
     if (file) {
@@ -89,6 +90,7 @@ export function useSupabaseBloodwork() {
   };
 
   const updateItem = async (id: string, changes: Partial<Omit<BloodworkEntry, "id" | "createdAt">>) => {
+    if (!supabase) return;
     const dbChanges: Record<string, unknown> = {};
     if (changes.title !== undefined)    dbChanges.title = changes.title;
     if (changes.date !== undefined)     dbChanges.date = changes.date;
@@ -100,6 +102,7 @@ export function useSupabaseBloodwork() {
   };
 
   const deleteItem = async (id: string) => {
+    if (!supabase) return;
     const item = items.find((i) => i.id === id);
     if (item?.filePath) {
       await supabase.storage.from("bloodwork").remove([item.filePath]);
@@ -109,6 +112,7 @@ export function useSupabaseBloodwork() {
   };
 
   const getFileUrl = (filePath: string) => {
+    if (!supabase) return "";
     const { data } = supabase.storage.from("bloodwork").getPublicUrl(filePath);
     return data.publicUrl;
   };

@@ -14,8 +14,6 @@ function uid(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-// Supabase-backed replacement for useAthletes.
-// Identical public interface — pages require no changes.
 export function useAthletesDB() {
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [blocks, setBlocks]     = useState<MacroBlock[]>([]);
@@ -25,6 +23,7 @@ export function useAthletesDB() {
   const supabase = getSupabaseBrowserClient();
 
   const fetchAll = useCallback(async () => {
+    if (!supabase) { setLoading(false); return; }
     const [{ data: aths }, { data: blks }] = await Promise.all([
       supabase.from("athletes").select("*").order("created_at"),
       supabase.from("macro_blocks").select("*").order("start_month"),
@@ -65,6 +64,7 @@ export function useAthletesDB() {
   }, [supabase]);
 
   useEffect(() => {
+    if (!supabase) { setLoading(false); return; }
     fetchAll();
 
     const channel = supabase
@@ -76,8 +76,8 @@ export function useAthletesDB() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchAll, supabase]);
 
-  // Athletes CRUD
   const addAthlete = async (data: Omit<Athlete, "id">) => {
+    if (!supabase) return uid("ath");
     const { data: row } = await supabase
       .from("athletes")
       .insert({
@@ -91,6 +91,7 @@ export function useAthletesDB() {
   };
 
   const updateAthlete = async (id: string, changes: Partial<Omit<Athlete, "id">>) => {
+    if (!supabase) return;
     const dbChanges: Record<string, unknown> = {};
     if (changes.name !== undefined)          dbChanges.name = changes.name;
     if (changes.sport !== undefined)         dbChanges.sport = changes.sport;
@@ -106,13 +107,14 @@ export function useAthletesDB() {
   };
 
   const deleteAthlete = async (id: string) => {
+    if (!supabase) return;
     await supabase.from("athletes").delete().eq("id", id);
     setAthletes((prev) => prev.filter((a) => a.id !== id));
     setBlocks((prev) => prev.filter((b) => b.athleteId !== id));
   };
 
-  // Blocks CRUD
   const addBlock = async (data: Omit<MacroBlock, "id">) => {
+    if (!supabase) return uid("mb");
     const { data: row } = await supabase
       .from("macro_blocks")
       .insert({ athlete_id: data.athleteId, type: data.type, start_month: data.startMonth, duration: data.duration, year: data.year, label: data.label })
@@ -122,6 +124,7 @@ export function useAthletesDB() {
   };
 
   const updateBlock = async (id: string, changes: Partial<Omit<MacroBlock, "id">>) => {
+    if (!supabase) return;
     const dbChanges: Record<string, unknown> = {};
     if (changes.type !== undefined)        dbChanges.type = changes.type;
     if (changes.startMonth !== undefined)  dbChanges.start_month = changes.startMonth;
@@ -133,12 +136,12 @@ export function useAthletesDB() {
   };
 
   const deleteBlock = async (id: string) => {
+    if (!supabase) return;
     await supabase.from("macro_blocks").delete().eq("id", id);
     setBlocks((prev) => prev.filter((b) => b.id !== id));
     setPhases((prev) => { const next = { ...prev }; delete next[id]; return next; });
   };
 
-  // Phase detail (still client-side for now — can move to Supabase later)
   const getPhase = (blockId: string): PhaseDetail =>
     phases[blockId] ?? { blockId, notes: "", exercises: [] };
 

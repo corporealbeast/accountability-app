@@ -25,6 +25,7 @@ Christian's context:
 type AnthropicMessage = { role: 'user' | 'assistant'; content: string | AnthropicContent[] }
 type AnthropicContent =
   | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
   | { type: 'tool_result'; tool_use_id: string; content: string }
 

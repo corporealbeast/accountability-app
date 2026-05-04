@@ -57,6 +57,7 @@ export default function GymMasterPage() {
 
   async function fetchMembers() {
     const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setLoading(false); return; }
     const { data } = await supabase
       .from("gymmaster_members")
       .select("*")

@@ -7,10 +7,13 @@ export function createSupabaseBrowserClient() {
   )
 }
 
-// Singleton for client components
+// Singleton for client components — returns null if Supabase is not configured
 let browserClient: ReturnType<typeof createSupabaseBrowserClient> | null = null
 
 export function getSupabaseBrowserClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return null
+  }
   if (!browserClient) {
     browserClient = createSupabaseBrowserClient()
   }
