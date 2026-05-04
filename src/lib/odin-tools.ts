@@ -314,7 +314,7 @@ export async function executeTool(name: string, input: Record<string, unknown>):
         const { title, startISO, endISO, description: desc, location } = input as {
           title: string; startISO: string; endISO: string; description?: string; location?: string
         }
-        await createEvent(title, startISO, endISO, desc, location)
+        await createEvent(title, new Date(startISO), new Date(endISO), desc, location)
         return `Calendar event created: "${title}" from ${startISO} to ${endISO}`
       }
 
