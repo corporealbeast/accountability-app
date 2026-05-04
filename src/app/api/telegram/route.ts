@@ -28,13 +28,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true })
   }
 
-  // Log inbound message (fire and forget)
-  const supabase = createServerSupabaseClient()
-  supabase.from('telegram_messages').insert({
-    chat_id: chatId,
-    direction: 'inbound',
-    text,
-  }).then(() => {})
+  // Log inbound message (fire and forget, only if Supabase is configured)
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    const supabase = createServerSupabaseClient()
+    supabase.from('telegram_messages').insert({
+      chat_id: chatId,
+      direction: 'inbound',
+      text,
+    }).then(() => {})
+  }
 
   try {
     await dispatchCommand(text, chatId)
