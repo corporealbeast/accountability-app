@@ -104,7 +104,7 @@ async function handleAppointments(): Promise<string> {
 
 async function handleMembers(): Promise<string> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/gymmaster?action=get_expiring&days=14`)
+    const res = await fetch(`${getAppUrl()}/api/gymmaster?action=get_expiring&days=14`)
     const data = await res.json()
     const members = data.members ?? []
 
@@ -181,9 +181,16 @@ async function handleNote(text: string): Promise<string> {
   }
 }
 
+function getAppUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+  return 'http://localhost:3000'
+}
+
 async function handleEdenChat(text: string): Promise<string> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/chat`, {
+    const res = await fetch(`${getAppUrl()}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
