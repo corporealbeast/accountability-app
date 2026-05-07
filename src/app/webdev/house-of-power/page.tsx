@@ -923,6 +923,27 @@ export default function HOPWebsitePlanner() {
           Map out every page, section, funnel, form, and asset before a single line of website code is written. Click status badges to cycle them.
         </p>
 
+        {/* Preview Site button */}
+        <a
+          href="/webdev/house-of-power/site"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "8px 16px",
+            borderRadius: "7px",
+            fontSize: "13px",
+            fontWeight: 700,
+            backgroundColor: "#E84A10",
+            color: "#fff",
+            textDecoration: "none",
+            marginBottom: "16px",
+          }}
+        >
+          <ExternalLink size={13} />
+          Preview Site Template
+        </a>
+
         {/* Stats row */}
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
           {[
