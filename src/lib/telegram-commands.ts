@@ -190,18 +190,11 @@ function getAppUrl(): string {
 
 async function handleEdenChat(text: string): Promise<string> {
   try {
-    const res = await fetch(`${getAppUrl()}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: text }],
-        source: 'telegram',
-      }),
-    })
-    const data = await res.json()
-    return data.reply ?? data.content ?? 'No response from Eden.'
-  } catch {
-    return 'Could not reach Eden. Check the app is running.'
+    const { runEden } = await import('./eden-agent')
+    const reply = await runEden([{ role: 'user', content: text }])
+    return reply || 'No response from Eden.'
+  } catch (err) {
+    return `Eden error: ${err instanceof Error ? err.message : String(err)}`
   }
 }
 

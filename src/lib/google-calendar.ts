@@ -63,6 +63,48 @@ export async function getUpcomingEvents(days: number = 7): Promise<CalendarEvent
   }))
 }
 
+export async function updateEvent(
+  eventId: string,
+  updates: {
+    title?: string
+    startISO?: string
+    endISO?: string
+    description?: string
+    location?: string
+  }
+): Promise<CalendarEvent> {
+  const auth = await getAuthenticatedClient()
+  const calendar = google.calendar({ version: 'v3', auth })
+
+  const requestBody: Record<string, unknown> = {}
+  if (updates.title) requestBody.summary = updates.title
+  if (updates.description !== undefined) requestBody.description = updates.description
+  if (updates.location !== undefined) requestBody.location = updates.location
+  if (updates.startISO) requestBody.start = { dateTime: updates.startISO }
+  if (updates.endISO) requestBody.end = { dateTime: updates.endISO }
+
+  const { data } = await calendar.events.patch({
+    calendarId: 'primary',
+    eventId,
+    requestBody,
+  })
+
+  return {
+    id: data.id ?? '',
+    summary: data.summary ?? '',
+    start: data.start?.dateTime ?? data.start?.date ?? '',
+    end: data.end?.dateTime ?? data.end?.date ?? '',
+    description: data.description ?? undefined,
+    location: data.location ?? undefined,
+  }
+}
+
+export async function deleteEvent(eventId: string): Promise<void> {
+  const auth = await getAuthenticatedClient()
+  const calendar = google.calendar({ version: 'v3', auth })
+  await calendar.events.delete({ calendarId: 'primary', eventId })
+}
+
 export async function createEvent(
   title: string,
   start: Date,

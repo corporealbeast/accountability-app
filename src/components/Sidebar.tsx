@@ -20,6 +20,7 @@ import {
   Code2,
   Sparkles,
   Users,
+  FolderKanban,
 } from "lucide-react";
 import { useState } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -41,6 +42,7 @@ const groups: NavGroup[] = [
     title: "Favorites",
     items: [
       { label: "Dashboard", href: "/", icon: <LayoutDashboard size={16} /> },
+      { label: "Projects", href: "/projects", icon: <FolderKanban size={16} /> },
       { label: "Strongman Prep", href: "/strongman-prep", icon: <Swords size={16} /> },
     ],
   },

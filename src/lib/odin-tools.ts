@@ -4,12 +4,15 @@
 import { createServerSupabaseClient } from './supabase-server'
 import { getMembershipsExpiringSoon } from './gymmaster'
 import { listKpiFields, getKpiByFields, listReports, runReport } from './gymmaster-reporting'
-import { getTodayEvents, getUpcomingEvents, createEvent } from './google-calendar'
+import { getTodayEvents, getUpcomingEvents, createEvent, updateEvent, deleteEvent } from './google-calendar'
 import { appendNote, getTodayNotePath } from './obsidian'
-import { sendEmail } from './google-gmail'
+import { sendEmail, listUnreadEmails } from './google-gmail'
 import { getTaskLists, createTask } from './google-tasks'
 import { triggerZap } from './zapier'
 import { listSpreadsheets, getSheetValues, appendSheetValues, updateSheetValues } from './google-sheets'
+import { tavilySearch, tavilyExtract } from './tavily'
+import { rememberFact, recallFacts, forgetFact } from './eden-memory'
+import { getKnowledgeDoc, searchKnowledge } from './knowledge/index'
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 const GHL_HEADERS = () => ({
@@ -277,6 +280,169 @@ export const ODIN_TOOLS = [
       required: ['zapUrl', 'payload'],
     },
   },
+  // ── Internet Access ───────────────────────────────────────────
+  {
+    name: 'web_search',
+    description: 'Search the internet for current information — news, prices, research, people, companies, anything. Use this instead of saying you don\'t know something that could be looked up.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'The search query' },
+        maxResults: { type: 'number', description: 'Number of results to return (default 5)' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'read_webpage',
+    description: 'Read the full text content of any webpage or URL. Use after web_search to get full details from a result.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'The full URL to read' },
+      },
+      required: ['url'],
+    },
+  },
+  // ── Persistent Memory ─────────────────────────────────────────
+  {
+    name: 'remember_fact',
+    description: 'Store an important fact to remember across all future conversations. Use proactively when Boss shares goals, numbers, decisions, preferences, or anything worth knowing later.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        key: { type: 'string', description: 'Short unique identifier for this memory (e.g. "revenue_goal", "wifes_due_date", "gym_name")' },
+        value: { type: 'string', description: 'The full value to remember' },
+        category: { type: 'string', enum: ['personal', 'business', 'goals', 'context', 'general'], description: 'Category for organization (default: general)' },
+      },
+      required: ['key', 'value'],
+    },
+  },
+  {
+    name: 'recall_facts',
+    description: 'Retrieve stored memories from past conversations. Call this at the start of any new conversation to load context about Boss.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', enum: ['personal', 'business', 'goals', 'context', 'general'], description: 'Optional filter by category. Omit to get all memories.' },
+      },
+    },
+  },
+  {
+    name: 'forget_fact',
+    description: 'Delete a stored memory that is no longer accurate or relevant.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        key: { type: 'string', description: 'The memory key to delete' },
+      },
+      required: ['key'],
+    },
+  },
+  // ── Task Actions ──────────────────────────────────────────────
+  {
+    name: 'complete_task',
+    description: 'Mark an Odin task as done by fuzzy title match.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        titleSearch: { type: 'string', description: 'Part of the task title to match (case-insensitive)' },
+      },
+      required: ['titleSearch'],
+    },
+  },
+  {
+    name: 'update_task',
+    description: 'Update the status or priority of an Odin task.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        titleSearch: { type: 'string', description: 'Part of the task title to match' },
+        status: { type: 'string', enum: ['planned', 'in-progress', 'done'], description: 'New status' },
+        priority: { type: 'string', enum: ['high', 'medium', 'low'], description: 'New priority' },
+      },
+      required: ['titleSearch'],
+    },
+  },
+  // ── Calendar Actions ──────────────────────────────────────────
+  {
+    name: 'update_calendar_event',
+    description: 'Update an existing Google Calendar event by eventId.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        eventId: { type: 'string', description: 'The Google Calendar event ID' },
+        title: { type: 'string', description: 'New event title' },
+        startISO: { type: 'string', description: 'New start time in ISO 8601 format' },
+        endISO: { type: 'string', description: 'New end time in ISO 8601 format' },
+        description: { type: 'string', description: 'New description' },
+        location: { type: 'string', description: 'New location' },
+      },
+      required: ['eventId'],
+    },
+  },
+  {
+    name: 'delete_calendar_event',
+    description: 'Delete a Google Calendar event by eventId.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        eventId: { type: 'string', description: 'The Google Calendar event ID to delete' },
+      },
+      required: ['eventId'],
+    },
+  },
+  // ── Email Inbox ───────────────────────────────────────────────
+  {
+    name: 'get_email_inbox',
+    description: 'Read recent unread emails from Gmail inbox.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        maxResults: { type: 'number', description: 'Number of emails to return (default 10)' },
+      },
+    },
+  },
+  // ── Knowledge Base ────────────────────────────────────────────
+  {
+    name: 'get_knowledge_doc',
+    description: 'Retrieve a House of Power knowledge document. Use when you need full sales scripts, texting templates, service details, brand guidelines, or pipeline stage definitions. Specify doc_id for the full document, or add section to get a specific section only.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        doc_id: {
+          type: 'string',
+          enum: [
+            '01-mission-brand',
+            '02-products-services',
+            '03-business-models',
+            '04-sales-scripts',
+            '05-texting-rules',
+          ],
+          description: 'Which knowledge document to retrieve',
+        },
+        section: {
+          type: 'string',
+          description: 'Optional: partial name of a specific section (e.g. "price objection", "first message", "TCPA", "tour booking"). Omit to get the full document.',
+        },
+      },
+      required: ['doc_id'],
+    },
+  },
+  {
+    name: 'search_knowledge',
+    description: 'Search across all House of Power knowledge documents for relevant sections. Use when you are not sure which document contains what you need, or when searching for a specific topic like an objection type, a scenario, a rule, or a script.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'What to search for. Examples: "price objection", "follow-up cadence", "what to say after tour", "TCPA Sunday rule", "cold lead re-engagement"',
+        },
+      },
+      required: ['query'],
+    },
+  },
 ] as const
 
 // ── Tool executor ─────────────────────────────────────────────
@@ -496,6 +662,99 @@ export async function executeTool(name: string, input: Record<string, unknown>):
       case 'trigger_zapier': {
         const { zapUrl, payload: zapPayload } = input as { zapUrl: string; payload: Record<string, unknown> }
         return await triggerZap(zapUrl, zapPayload)
+      }
+
+      case 'web_search': {
+        const { query, maxResults } = input as { query: string; maxResults?: number }
+        const results = await tavilySearch(query, maxResults ?? 5)
+        if (!results.length) return 'No results found.'
+        return results.map((r, i) =>
+          `[${i + 1}] ${r.title}${r.url ? ` (${r.url})` : ''}\n${r.content}`
+        ).join('\n\n')
+      }
+
+      case 'read_webpage': {
+        const { url } = input as { url: string }
+        const content = await tavilyExtract(url)
+        return content.slice(0, 4000) // cap at 4k chars to stay within token budget
+      }
+
+      case 'remember_fact': {
+        const { key, value, category } = input as { key: string; value: string; category?: 'personal' | 'business' | 'goals' | 'context' | 'general' }
+        await rememberFact(key, value, category ?? 'general')
+        return `Remembered: "${key}" = "${value}"`
+      }
+
+      case 'recall_facts': {
+        const { category } = input as { category?: 'personal' | 'business' | 'goals' | 'context' | 'general' }
+        const facts = await recallFacts(category)
+        if (!facts.length) return category ? `No memories in category "${category}".` : 'No memories stored yet.'
+        return facts.map((f) => `[${f.category}] ${f.key}: ${f.value}`).join('\n')
+      }
+
+      case 'forget_fact': {
+        const { key } = input as { key: string }
+        await forgetFact(key)
+        return `Forgotten: "${key}"`
+      }
+
+      case 'complete_task': {
+        const supabase = createServerSupabaseClient()
+        const { titleSearch } = input as { titleSearch: string }
+        const { data } = await supabase
+          .from('odin_tasks')
+          .select('id, title')
+          .in('status', ['planned', 'in-progress'])
+        if (!data?.length) return 'No active tasks found.'
+        const match = data.find((t) => t.title.toLowerCase().includes(titleSearch.toLowerCase()))
+        if (!match) return `No task found matching "${titleSearch}".`
+        await supabase.from('odin_tasks').update({ status: 'done', updated_at: new Date().toISOString() }).eq('id', match.id)
+        return `Marked done: "${match.title}"`
+      }
+
+      case 'update_task': {
+        const supabase = createServerSupabaseClient()
+        const { titleSearch, status, priority } = input as { titleSearch: string; status?: string; priority?: string }
+        const { data } = await supabase.from('odin_tasks').select('id, title').in('status', ['planned', 'in-progress'])
+        if (!data?.length) return 'No active tasks found.'
+        const match = data.find((t) => t.title.toLowerCase().includes(titleSearch.toLowerCase()))
+        if (!match) return `No task found matching "${titleSearch}".`
+        const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+        if (status) updates.status = status
+        if (priority) updates.priority = priority
+        await supabase.from('odin_tasks').update(updates).eq('id', match.id)
+        return `Updated "${match.title}": ${JSON.stringify({ status, priority })}`
+      }
+
+      case 'update_calendar_event': {
+        const { eventId, ...updates } = input as { eventId: string; title?: string; startISO?: string; endISO?: string; description?: string; location?: string }
+        const event = await updateEvent(eventId, updates)
+        return `Event updated: "${event.summary}" (${event.start})`
+      }
+
+      case 'delete_calendar_event': {
+        const { eventId } = input as { eventId: string }
+        await deleteEvent(eventId)
+        return `Calendar event ${eventId} deleted.`
+      }
+
+      case 'get_email_inbox': {
+        const maxResults = (input.maxResults as number) ?? 10
+        const emails = await listUnreadEmails(maxResults)
+        if (!emails.length) return 'No unread emails.'
+        return emails.map((e) =>
+          `From: ${e.from}\nSubject: ${e.subject}\nDate: ${e.date}\n${e.snippet}`
+        ).join('\n\n---\n\n')
+      }
+
+      case 'get_knowledge_doc': {
+        const { doc_id, section } = input as { doc_id: string; section?: string }
+        return getKnowledgeDoc(doc_id, section)
+      }
+
+      case 'search_knowledge': {
+        const { query } = input as { query: string }
+        return searchKnowledge(query)
       }
 
       default:

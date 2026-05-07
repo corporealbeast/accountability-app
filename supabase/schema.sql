@@ -206,6 +206,17 @@ create table if not exists public.telegram_messages (
 -- No RLS: written by server-side webhook handler with service role key
 
 
+-- ── Eden Memory (persistent cross-session AI memory) ─────────
+create table if not exists public.eden_memory (
+  id         uuid default gen_random_uuid() primary key,
+  key        text not null unique,
+  value      text not null,
+  category   text default 'general' check (category in ('personal','business','goals','context','general')),
+  updated_at timestamptz default now()
+);
+-- No RLS: written only by server-side Eden agent with service role key
+
+
 -- ── Supabase Storage Bucket for Bloodwork Files ───────────────
 -- Run separately in Supabase Storage UI or via:
 -- insert into storage.buckets (id, name, public) values ('bloodwork', 'bloodwork', false);
