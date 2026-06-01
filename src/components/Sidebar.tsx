@@ -4,11 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Swords,
   Landmark,
   Dumbbell,
-  Zap,
-  BarChart2,
   Brain,
   FlaskConical,
   Crosshair,
@@ -16,8 +13,6 @@ import {
   Bot,
   Sword,
   Bell,
-  Globe,
-  Code2,
   Sparkles,
   Users,
   FolderKanban,
@@ -41,9 +36,9 @@ const groups: NavGroup[] = [
   {
     title: "Favorites",
     items: [
-      { label: "Dashboard", href: "/", icon: <LayoutDashboard size={16} /> },
+      { label: "Command Center", href: "/command", icon: <LayoutDashboard size={16} /> },
+      { label: "Coaching Business Hub", href: "/coaching", icon: <Bot size={16} /> },
       { label: "Projects", href: "/projects", icon: <FolderKanban size={16} /> },
-      { label: "Strongman Prep", href: "/strongman-prep", icon: <Swords size={16} /> },
     ],
   },
   {
@@ -54,17 +49,6 @@ const groups: NavGroup[] = [
       { label: "Davis Legacy", href: "/house-of-power/odin-claude", icon: <Sword size={14} />, sub: true },
       { label: "GymMaster", href: "/gymmaster", icon: <Users size={16} /> },
       { label: "Strength Collective", href: "/strength-collective", icon: <Dumbbell size={16} /> },
-      { label: "PowerSource", href: "/powersource", icon: <Zap size={16} /> },
-    ],
-  },
-  {
-    title: "Business",
-    items: [
-      { label: "GrayRevenue", href: "/gray-revenue", icon: <BarChart2 size={16} /> },
-      { label: "Web Dev", href: "/webdev", icon: <Globe size={16} /> },
-      { label: "Apex Peptides", href: "/webdev/apex-peptides", icon: <Code2 size={14} />, sub: true },
-      { label: "Specific Peptides", href: "/webdev/specific-peptides", icon: <Code2 size={14} />, sub: true },
-      { label: "House of Power", href: "/webdev/house-of-power", icon: <Code2 size={14} />, sub: true },
     ],
   },
   {
