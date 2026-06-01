@@ -23,6 +23,15 @@ type SystemChecklistItem = {
   nextAction: string;
 };
 
+type AssetItem = {
+  title: string;
+  category: string;
+  relatedRoadmapItem: string;
+  content: string;
+  link: string;
+  status: "Draft" | "Ready" | "Used";
+};
+
 type RoadmapItem = {
   title: string;
   project: string;
@@ -47,6 +56,7 @@ type CommandData = {
   leads: Lead[];
   systemChecklist: SystemChecklistItem[];
   roadmap: RoadmapItem[];
+  assets: AssetItem[];
   blockers: {
     blocker: string;
     simplifiedAction: string;
@@ -227,6 +237,33 @@ roadmap: [
   },
 ],
 
+assets: [
+  {
+    title: "First Coaching Ad Copy",
+    category: "Ad Copy",
+    relatedRoadmapItem: "Create First Coaching Ad Campaign",
+    content: "",
+    link: "",
+    status: "Draft",
+  },
+  {
+    title: "GHL Landing Page Copy",
+    category: "Funnel Copy",
+    relatedRoadmapItem: "Build GHL Coaching Funnel",
+    content: "",
+    link: "",
+    status: "Draft",
+  },
+  {
+    title: "Testimonial / Proof Notes",
+    category: "Proof",
+    relatedRoadmapItem: "Testimonial / Transformation Library",
+    content: "",
+    link: "",
+    status: "Draft",
+  },
+],
+
 blockers: [
     {
       blocker: "MyStrengthBook setup",
@@ -265,11 +302,24 @@ export default function CommandCenterClient() {
     nextFollowUp: "",
   });
 
+  const [newAsset, setNewAsset] = useState<AssetItem>({
+    title: "",
+    category: "",
+    relatedRoadmapItem: "",
+    content: "",
+    link: "",
+    status: "Draft",
+  });
+
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
 
     if (saved) {
-      setData(JSON.parse(saved));
+      const parsed = JSON.parse(saved);
+      setData({
+        ...parsed,
+        assets: parsed.assets ?? defaultData.assets,
+      });
     }
   }, []);
 
@@ -378,6 +428,55 @@ function updateRoadmapAssetLinks(index: number, assetLinks: string) {
     };
   });
 }
+
+  function addAsset() {
+    if (!newAsset.title.trim()) return;
+
+    setData((current) => ({
+      ...current,
+      assets: [...current.assets, newAsset],
+    }));
+
+    setNewAsset({
+      title: "",
+      category: "",
+      relatedRoadmapItem: "",
+      content: "",
+      link: "",
+      status: "Draft",
+    });
+  }
+
+  function removeAsset(index: number) {
+    setData((current) => ({
+      ...current,
+      assets: current.assets.filter((_, i) => i !== index),
+    }));
+  }
+
+  function updateAssetStatus(index: number, status: AssetItem["status"]) {
+    setData((current) => {
+      const updated = [...current.assets];
+      updated[index] = { ...updated[index], status };
+      return { ...current, assets: updated };
+    });
+  }
+
+  function updateAssetContent(index: number, content: string) {
+    setData((current) => {
+      const updated = [...current.assets];
+      updated[index] = { ...updated[index], content };
+      return { ...current, assets: updated };
+    });
+  }
+
+  function updateAssetLink(index: number, link: string) {
+    setData((current) => {
+      const updated = [...current.assets];
+      updated[index] = { ...updated[index], link };
+      return { ...current, assets: updated };
+    });
+  }
 
   function addLead() {
     if (!newLead.name.trim()) return;
@@ -683,6 +782,101 @@ function updateRoadmapAssetLinks(index: number, assetLinks: string) {
     })}
   </div>
 </section>
+        <section className="rounded-2xl bg-[#30363d] p-6">
+  <p className="text-sm uppercase tracking-[0.2em] text-cyan-300/70">
+    Asset Library
+  </p>
+
+  <h2 className="mt-2 text-2xl font-bold">Claude / EDEN Outputs</h2>
+
+  <p className="mt-2 max-w-3xl text-slate-300">
+    Store ad copy, video scripts, landing page copy, testimonial notes, image links, and GHL page links here.
+  </p>
+
+  <div className="mt-5 grid gap-3 md:grid-cols-4">
+    <input
+      placeholder="Asset title"
+      value={newAsset.title}
+      onChange={(e) => setNewAsset((c) => ({ ...c, title: e.target.value }))}
+      className="rounded-xl border border-slate-700 bg-[#24292f] p-3 text-sm text-white outline-none focus:border-cyan-300"
+    />
+    <input
+      placeholder="Category (e.g. Ad Copy)"
+      value={newAsset.category}
+      onChange={(e) => setNewAsset((c) => ({ ...c, category: e.target.value }))}
+      className="rounded-xl border border-slate-700 bg-[#24292f] p-3 text-sm text-white outline-none focus:border-cyan-300"
+    />
+    <input
+      placeholder="Related roadmap item"
+      value={newAsset.relatedRoadmapItem}
+      onChange={(e) => setNewAsset((c) => ({ ...c, relatedRoadmapItem: e.target.value }))}
+      className="rounded-xl border border-slate-700 bg-[#24292f] p-3 text-sm text-white outline-none focus:border-cyan-300"
+    />
+    <button
+      onClick={addAsset}
+      className="rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200"
+    >
+      Add Asset
+    </button>
+  </div>
+
+  <div className="mt-5 space-y-4">
+    {data.assets.map((asset, index) => (
+      <div
+        key={`${asset.title}-${index}`}
+        className="rounded-xl border border-slate-600 bg-[#24292f] p-5"
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm text-cyan-300">
+              {asset.category}{asset.relatedRoadmapItem ? ` · ${asset.relatedRoadmapItem}` : ""}
+            </p>
+            <h3 className="mt-1 text-lg font-bold">{asset.title}</h3>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <select
+              value={asset.status}
+              onChange={(e) => updateAssetStatus(index, e.target.value as AssetItem["status"])}
+              className="rounded-lg bg-[#1f252b] p-2 text-sm text-white"
+            >
+              <option>Draft</option>
+              <option>Ready</option>
+              <option>Used</option>
+            </select>
+            <button
+              onClick={() => removeAsset(index)}
+              className="rounded-lg border border-red-300/30 px-3 py-2 text-xs text-red-100 hover:bg-red-950/40"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-sm font-semibold text-cyan-300">Content</p>
+          <textarea
+            value={asset.content}
+            onChange={(e) => updateAssetContent(index, e.target.value)}
+            placeholder="Paste Claude/EDEN output, copy, notes, or scripts here."
+            className="mt-2 min-h-[120px] w-full rounded-xl border border-slate-700 bg-[#1f252b] p-3 text-sm text-white outline-none focus:border-cyan-300"
+          />
+        </div>
+
+        <div className="mt-3">
+          <p className="text-sm font-semibold text-cyan-300">Link</p>
+          <input
+            value={asset.link}
+            onChange={(e) => updateAssetLink(index, e.target.value)}
+            placeholder="Google Drive, GHL page, image, or video link"
+            className="mt-2 w-full rounded-xl border border-slate-700 bg-[#1f252b] p-3 text-sm text-white outline-none focus:border-cyan-300"
+          />
+        </div>
+      </div>
+    ))}
+  </div>
+</section>
+
         <section className="rounded-2xl bg-[#30363d] p-6">
   <p className="text-sm uppercase tracking-[0.2em] text-cyan-300/70">
     Coaching System Checklist
