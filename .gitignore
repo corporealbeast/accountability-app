@@ -27,3 +27,11 @@ secrets.yml
 Thumbs.db
 
 .vercel
+
+# local automation / screenshots
+.playwright-mcp/
+ghl-*.png
+msb-*.png
+msb-user-response.json
+tsconfig.tsbuildinfo
+.claude/settings.local.json
