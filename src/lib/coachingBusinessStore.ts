@@ -314,3 +314,41 @@ export function saveData(data: CoachingBusiness): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
+
+// ── Supabase-backed persistence (via server API route) ────────────────────────
+// The API route uses the service role key server-side; no secrets reach the browser.
+
+export async function loadDataFromSupabase(): Promise<CoachingBusiness | null> {
+  try {
+    const res = await fetch("/api/coaching-business-state");
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json.data) return null;
+    const remote = json.data as Partial<CoachingBusiness>;
+    return {
+      ...defaultData,
+      ...remote,
+      todayActions: remote.todayActions ?? defaultData.todayActions,
+      leads: remote.leads ?? defaultData.leads,
+      systemChecklist: remote.systemChecklist ?? defaultData.systemChecklist,
+      roadmap: remote.roadmap ?? defaultData.roadmap,
+      assets: remote.assets ?? defaultData.assets,
+      agentQueue: remote.agentQueue ?? defaultData.agentQueue,
+      blockers: remote.blockers ?? defaultData.blockers,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveDataToSupabase(data: CoachingBusiness): Promise<void> {
+  try {
+    await fetch("/api/coaching-business-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  } catch {
+    // silent — localStorage is the fallback
+  }
+}

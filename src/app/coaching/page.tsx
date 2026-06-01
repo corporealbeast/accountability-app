@@ -12,6 +12,8 @@ import {
   defaultData,
   loadData,
   saveData,
+  loadDataFromSupabase,
+  saveDataToSupabase,
 } from "@/lib/coachingBusinessStore";
 
 type Tab =
@@ -102,19 +104,35 @@ export default function CoachingPage() {
   });
 
   useEffect(() => {
-    setData(loadData());
-    setHasLoaded(true);
+    let cancelled = false;
+    async function init() {
+      const remote = await loadDataFromSupabase();
+      if (cancelled) return;
+      if (remote) {
+        setData(remote);
+        saveData(remote); // keep localStorage in sync with Supabase
+      } else {
+        const local = loadData();
+        setData(local);
+        saveDataToSupabase(local); // seed Supabase from existing localStorage
+      }
+      setHasLoaded(true);
+    }
+    init();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     if (!hasLoaded) return;
 
-    saveData(data);
-    setSaveStatus("Autosaved");
+    saveData(data); // immediate localStorage write
+    setSaveStatus("Saving...");
 
     const timeout = window.setTimeout(() => {
-      setSaveStatus("Saved locally");
-    }, 1000);
+      saveDataToSupabase(data)
+        .then(() => setSaveStatus("Saved"))
+        .catch(() => setSaveStatus("Saved locally"));
+    }, 1500);
 
     return () => window.clearTimeout(timeout);
   }, [data, hasLoaded]);

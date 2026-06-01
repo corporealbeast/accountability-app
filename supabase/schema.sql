@@ -222,3 +222,15 @@ create table if not exists public.eden_memory (
 -- insert into storage.buckets (id, name, public) values ('bloodwork', 'bloodwork', false);
 -- create policy "own bloodwork files" on storage.objects for all
 --   using (bucket_id = 'bloodwork' and auth.uid()::text = (storage.foldername(name))[1]);
+
+
+-- ── Coaching Business State (EDEN Command Center + Coaching Hub) ──
+-- Single-document JSONB store keyed by workspace_key.
+-- No RLS — writable only from the server API route via service role key.
+-- Workspace key for this deployment: 'christian-coaching-business'
+create table if not exists public.coaching_business_state (
+  id            uuid default gen_random_uuid() primary key,
+  workspace_key text unique not null,
+  data          jsonb not null default '{}',
+  updated_at    timestamptz default now()
+);
