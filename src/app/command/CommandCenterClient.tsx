@@ -32,6 +32,16 @@ type AssetItem = {
   status: "Draft" | "Ready" | "Used";
 };
 
+type AgentTask = {
+  task: string;
+  assignedAgent: string;
+  project: string;
+  outputNeeded: string;
+  status: "Queued" | "Ready to Send" | "Waiting on Agent" | "Needs Review" | "Complete";
+  saveOutputTo: string;
+  nextHumanAction: string;
+};
+
 type RoadmapItem = {
   title: string;
   project: string;
@@ -57,6 +67,7 @@ type CommandData = {
   systemChecklist: SystemChecklistItem[];
   roadmap: RoadmapItem[];
   assets: AssetItem[];
+  agentQueue: AgentTask[];
   blockers: {
     blocker: string;
     simplifiedAction: string;
@@ -264,6 +275,36 @@ assets: [
   },
 ],
 
+agentQueue: [
+  {
+    task: "Create first coaching ad campaign",
+    assignedAgent: "Claude Ads Agent",
+    project: "Personal Coaching",
+    outputNeeded: "3 ad angles, hooks, captions, and one short video script",
+    status: "Queued",
+    saveOutputTo: "Asset Library → First Coaching Ad Copy",
+    nextHumanAction: "Send the roadmap card brief to Claude and paste output into Asset Library",
+  },
+  {
+    task: "Build GHL coaching funnel copy",
+    assignedAgent: "Claude Funnel/Ops Agent",
+    project: "Personal Coaching",
+    outputNeeded: "Headline, proof section, offer section, CTA, and form instructions",
+    status: "Queued",
+    saveOutputTo: "Asset Library → GHL Landing Page Copy",
+    nextHumanAction: "Send funnel card brief to Claude and paste output into Asset Library",
+  },
+  {
+    task: "Create testimonial collection system",
+    assignedAgent: "EDEN / Claude Funnel-Ops Agent",
+    project: "Personal Coaching",
+    outputNeeded: "Testimonial fields list, permission message template, and asset tagging guide",
+    status: "Queued",
+    saveOutputTo: "Asset Library → Testimonial / Proof Notes",
+    nextHumanAction: "Send testimonial card brief to Claude and paste output into Asset Library",
+  },
+],
+
 blockers: [
     {
       blocker: "MyStrengthBook setup",
@@ -302,6 +343,16 @@ export default function CommandCenterClient() {
     nextFollowUp: "",
   });
 
+  const [newAgentTask, setNewAgentTask] = useState<AgentTask>({
+    task: "",
+    assignedAgent: "",
+    project: "",
+    outputNeeded: "",
+    status: "Queued",
+    saveOutputTo: "",
+    nextHumanAction: "",
+  });
+
   const [newAsset, setNewAsset] = useState<AssetItem>({
     title: "",
     category: "",
@@ -319,6 +370,7 @@ export default function CommandCenterClient() {
       setData({
         ...parsed,
         assets: parsed.assets ?? defaultData.assets,
+        agentQueue: parsed.agentQueue ?? defaultData.agentQueue,
       });
     }
   }, []);
@@ -428,6 +480,56 @@ function updateRoadmapAssetLinks(index: number, assetLinks: string) {
     };
   });
 }
+
+  function addAgentTask() {
+    if (!newAgentTask.task.trim()) return;
+
+    setData((current) => ({
+      ...current,
+      agentQueue: [...current.agentQueue, newAgentTask],
+    }));
+
+    setNewAgentTask({
+      task: "",
+      assignedAgent: "",
+      project: "",
+      outputNeeded: "",
+      status: "Queued",
+      saveOutputTo: "",
+      nextHumanAction: "",
+    });
+  }
+
+  function removeAgentTask(index: number) {
+    setData((current) => ({
+      ...current,
+      agentQueue: current.agentQueue.filter((_, i) => i !== index),
+    }));
+  }
+
+  function updateAgentTaskStatus(index: number, status: AgentTask["status"]) {
+    setData((current) => {
+      const updated = [...current.agentQueue];
+      updated[index] = { ...updated[index], status };
+      return { ...current, agentQueue: updated };
+    });
+  }
+
+  function updateAgentTaskOutputNeeded(index: number, outputNeeded: string) {
+    setData((current) => {
+      const updated = [...current.agentQueue];
+      updated[index] = { ...updated[index], outputNeeded };
+      return { ...current, agentQueue: updated };
+    });
+  }
+
+  function updateAgentTaskNextHumanAction(index: number, nextHumanAction: string) {
+    setData((current) => {
+      const updated = [...current.agentQueue];
+      updated[index] = { ...updated[index], nextHumanAction };
+      return { ...current, agentQueue: updated };
+    });
+  }
 
   function addAsset() {
     if (!newAsset.title.trim()) return;
@@ -870,6 +972,106 @@ function updateRoadmapAssetLinks(index: number, assetLinks: string) {
             onChange={(e) => updateAssetLink(index, e.target.value)}
             placeholder="Google Drive, GHL page, image, or video link"
             className="mt-2 w-full rounded-xl border border-slate-700 bg-[#1f252b] p-3 text-sm text-white outline-none focus:border-cyan-300"
+          />
+        </div>
+      </div>
+    ))}
+  </div>
+</section>
+
+        <section className="rounded-2xl bg-[#30363d] p-6">
+  <p className="text-sm uppercase tracking-[0.2em] text-cyan-300/70">
+    Agent Queue
+  </p>
+
+  <h2 className="mt-2 text-2xl font-bold">Tasks Assigned to Agents</h2>
+
+  <p className="mt-2 max-w-3xl text-slate-300">
+    Track what Claude, ChatGPT, and EDEN are working on, where their output should be saved, and what you need to do next.
+  </p>
+
+  <div className="mt-5 grid gap-3 md:grid-cols-4">
+    <input
+      placeholder="Task"
+      value={newAgentTask.task}
+      onChange={(e) => setNewAgentTask((c) => ({ ...c, task: e.target.value }))}
+      className="rounded-xl border border-slate-700 bg-[#24292f] p-3 text-sm text-white outline-none focus:border-cyan-300"
+    />
+    <input
+      placeholder="Assigned agent"
+      value={newAgentTask.assignedAgent}
+      onChange={(e) => setNewAgentTask((c) => ({ ...c, assignedAgent: e.target.value }))}
+      className="rounded-xl border border-slate-700 bg-[#24292f] p-3 text-sm text-white outline-none focus:border-cyan-300"
+    />
+    <input
+      placeholder="Project"
+      value={newAgentTask.project}
+      onChange={(e) => setNewAgentTask((c) => ({ ...c, project: e.target.value }))}
+      className="rounded-xl border border-slate-700 bg-[#24292f] p-3 text-sm text-white outline-none focus:border-cyan-300"
+    />
+    <button
+      onClick={addAgentTask}
+      className="rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200"
+    >
+      Add Task
+    </button>
+  </div>
+
+  <div className="mt-5 space-y-4">
+    {data.agentQueue.map((item, index) => (
+      <div
+        key={`${item.task}-${index}`}
+        className="rounded-xl border border-slate-600 bg-[#24292f] p-5"
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm text-cyan-300">
+              {item.project}{item.assignedAgent ? ` · ${item.assignedAgent}` : ""}
+            </p>
+            <h3 className="mt-1 text-lg font-bold">{item.task}</h3>
+            {item.saveOutputTo && (
+              <p className="mt-1 text-xs text-slate-400">Save to: {item.saveOutputTo}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <select
+              value={item.status}
+              onChange={(e) => updateAgentTaskStatus(index, e.target.value as AgentTask["status"])}
+              className="rounded-lg bg-[#1f252b] p-2 text-sm text-white"
+            >
+              <option>Queued</option>
+              <option>Ready to Send</option>
+              <option>Waiting on Agent</option>
+              <option>Needs Review</option>
+              <option>Complete</option>
+            </select>
+            <button
+              onClick={() => removeAgentTask(index)}
+              className="rounded-lg border border-red-300/30 px-3 py-2 text-xs text-red-100 hover:bg-red-950/40"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-sm font-semibold text-cyan-300">Output Needed</p>
+          <textarea
+            value={item.outputNeeded}
+            onChange={(e) => updateAgentTaskOutputNeeded(index, e.target.value)}
+            placeholder="What should the agent produce?"
+            className="mt-2 min-h-[80px] w-full rounded-xl border border-slate-700 bg-[#1f252b] p-3 text-sm text-white outline-none focus:border-cyan-300"
+          />
+        </div>
+
+        <div className="mt-3">
+          <p className="text-sm font-semibold text-cyan-300">Next Human Action</p>
+          <textarea
+            value={item.nextHumanAction}
+            onChange={(e) => updateAgentTaskNextHumanAction(index, e.target.value)}
+            placeholder="What do you need to do once the agent responds?"
+            className="mt-2 min-h-[60px] w-full rounded-xl border border-slate-700 bg-[#1f252b] p-3 text-sm text-white outline-none focus:border-cyan-300"
           />
         </div>
       </div>
